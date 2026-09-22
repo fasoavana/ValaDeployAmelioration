@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>ValaDeploy - Project</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+    <script src="../styles/project-detail.tailwind.config.js"></script>
+    <link href="../styles/project-detail.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/toast.css"> 
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen flex overflow-hidden" data-page="projects">
+    <!-- Shared Component: SideNavBar -->
+    <div data-component="../components/sidebar.html"></div>
+    <div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+    <div data-component="../components/confirm-modal.html"></div>
+
+    
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden ml-64">
+        <!-- Canvas -->
+        <main class="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop bg-background">
+            <div class="max-w-max-width mx-auto space-y-xl">
+                
+                <!-- Project Header -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-md border-b border-outline-variant pb-lg">
+                    <div>
+                        <div class="flex items-center gap-md mb-xs">
+                            <h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-bold" id="project-name">loading...</h1>
+                            <div id="status-badge-container" class="flex items-center gap-xs px-2 py-1 rounded bg-[#12B76A]/10 text-[#12B76A] border border-[#12B76A]/20">
+                                <span id="status-dot" class="w-2 h-2 rounded-full bg-[#12B76A]"></span>
+                                <span id="status-text" class="font-label-sm text-label-sm uppercase tracking-wider">Running</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-lg font-body-sm text-body-sm text-secondary">
+                            <div class="flex items-center gap-xs">
+                                <span class="material-symbols-outlined text-[16px]">folder_code</span>
+                                <span id="repo-url-display">github.com/vala/auth-service</span>
+                            </div>
+                            <div class="flex items-center gap-xs">
+                                <span class="material-symbols-outlined text-[16px]">merge</span>
+                                <span id="branch-display">main</span>
+                            </div>
+                            <div class="flex items-center gap-xs">
+                                <span class="material-symbols-outlined text-[16px]">schedule</span>
+                                <span id="deployed-ago-display">Deployed 2m ago</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Control Bar -->
+                    <div class="flex items-center gap-sm mt-md md:mt-0">
+                        <button class="px-md py-sm bg-surface text-secondary border border-outline-variant rounded-DEFAULT font-label-md hover:bg-surface-variant transition-colors flex items-center gap-xs" id="btn-stop" type="button">
+                            <span class="material-symbols-outlined text-[18px]">stop</span>
+                            Stop
+                        </button>
+                        <button class="px-md py-sm bg-surface text-secondary border border-outline-variant rounded-DEFAULT font-label-md hover:bg-surface-variant transition-colors flex items-center gap-xs" id="btn-restart" type="button">
+                            <span class="material-symbols-outlined text-[18px]">refresh</span>
+                            Restart
+                        </button>
+                        <button class="px-md py-sm bg-primary-container text-on-primary rounded-DEFAULT font-label-md hover:opacity-90 transition-opacity flex items-center gap-xs" id="btn-start" type="button">
+                            <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                            Start
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bento Grid Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+                    
+                    <!-- Live Logs Terminal (Spans 2 cols) -->
+                    <div class="lg:col-span-2 bg-[#0a0a0a] rounded-lg border border-[#333] flex flex-col h-[500px] shadow-sm overflow-hidden">
+                        <div class="flex items-center justify-between px-md py-sm border-b border-[#333] bg-[#111]">
+                            <div class="flex items-center gap-sm">
+                                <span class="material-symbols-outlined text-[#888] text-[18px]">terminal</span>
+                                <span class="font-label-md text-label-md text-[#ccc]">Deployment Logs</span>
+                            </div>
+                            <div class="flex items-center gap-xs text-primary-fixed-dim font-label-sm text-label-sm disconnected" id="live-indicator">
+                                <span class="w-2 h-2 rounded-full live-dot pulse-live"></span>
+                                <span class="live-label">LIVE</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 p-md overflow-y-auto font-mono-code text-mono-code text-[#aaa] space-y-1" id="log-terminal">
+                            <div class="text-[#666]">Waiting for connection...</div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Metrics & Env Vars -->
+                    <div class="space-y-lg flex flex-col">
+                        
+                        <!-- Metrics -->
+                        <div class="bg-surface rounded-lg border border-outline-variant p-md">
+                            <h3 class="font-label-md text-label-md text-secondary mb-md uppercase tracking-wider">System Metrics</h3>
+                            <div class="space-y-md" id="metrics-container">
+                                <!-- CPU -->
+                                <div>
+                                    <div class="flex justify-between items-center mb-xs">
+                                        <span class="font-body-sm text-body-sm text-on-surface">CPU Usage</span>
+                                        <span class="font-label-md text-label-md text-on-surface" id="cpu-value">--</span>
+                                    </div>
+                                    <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+                                        <div class="h-full bg-primary-container transition-all duration-500" id="cpu-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <!-- Memory -->
+                                <div>
+                                    <div class="flex justify-between items-center mb-xs">
+                                        <span class="font-body-sm text-body-sm text-on-surface">Memory Usage</span>
+                                        <span class="font-label-md text-label-md text-on-surface" id="mem-value">--</span>
+                                    </div>
+                                    <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+                                        <div class="h-full bg-tertiary-container transition-all duration-500" id="mem-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="font-body-sm text-body-sm text-secondary mt-md italic" id="metrics-status">Chargement des métriques...</p>
+                        </div>
+
+                        <!-- Environment Variables -->
+                        <div class="bg-surface rounded-lg border border-outline-variant flex-1 flex flex-col min-h-[300px]">
+                            <div class="flex items-center justify-between p-md border-b border-outline-variant">
+                                <h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider">Environment Variables</h3>
+                                <button class="text-secondary hover:text-primary transition-colors" id="btn-edit-env" title="Modifier (bientôt)">
+                                    <span class="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                            </div>
+                            <div class="p-md space-y-sm flex-1 overflow-y-auto" id="env-vars-container">
+                                <!-- Rempli dynamiquement par JS -->
+                                <div class="text-secondary text-body-sm italic">Chargement...</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../scripts/config.js"></script>
+    <script src="../scripts/components.js"></script>
+    <script src="../scripts/toast.js"></script>
+    <script src="../scripts/confirm-modal.js"></script>
+    <script src="../scripts/api/auth.js"></script>
+    <script src="../scripts/api/project.js"></script>
+    <script src="../scripts/api/log.js"></script>
+    <script src="../scripts/project-detail.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+docs/*
+backend/.env
+backend/venv/
+backend/.venv/
+backend/ENV/
+__pycache__/
+backend/cookies.txt

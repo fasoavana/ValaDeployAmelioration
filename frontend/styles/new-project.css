@@ -1,0 +1,68 @@
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Aperçu du sous-domaine généré à partir du slug (RG-05) */
+#slug-preview {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.slug-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--tw-color-surface-container-low, #f0f3ff);
+    color: var(--tw-color-on-surface, #111c2d);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 20px;
+    transition: background-color 200ms ease;
+}
+
+/* Champs de saisie : transitions fluides sur bordure + halo au focus */
+.field-input,
+.field-wrap {
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.field-input:focus,
+.field-wrap:focus-within {
+    outline: none;
+    border-color: #111c2d;
+    box-shadow: 0 0 0 3px rgba(17, 28, 45, 0.06);
+}
+
+/* Focus clavier visible et cohérent sur les éléments interactifs */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid #111c2d;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Entrée douce des lignes de variables d'environnement */
+.env-var-row {
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.env-var-row-enter {
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
+.btn-deploy {
+    will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .env-var-row,
+    .btn-deploy,
+    .field-input,
+    .field-wrap,
+    a,
+    button {
+        transition: none !important;
+        animation: none !important;
+    }
+}

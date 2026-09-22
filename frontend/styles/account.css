@@ -1,0 +1,44 @@
+/* ValaDeploy - styles custom (hors utilitaires Tailwind) */
+
+body {
+    background-color: #F9FAFB;
+}
+
+.border-subtle {
+    border-color: #EAECF0;
+}
+
+.text-subtle {
+    color: #667085;
+}
+
+.text-primary-dark {
+    color: #000000;
+}
+
+.bg-primary-orange {
+    background-color: #FF5C00;
+}
+
+.bg-danger-red {
+    background-color: #D92D20;
+}
+
+.text-danger-red {
+    color: #D92D20;
+}
+
+.bg-success-green {
+    background-color: rgba(18, 183, 106, 0.1);
+    color: #12B76A;
+}
+
+.dot-success {
+    background-color: #12B76A;
+}
+
+/* Wrapper de page : isole la mise en page (flex + hauteur pleine écran)
+   du <body> global, pour ne pas impacter les autres pages du site. */
+.page-wrapper {
+    min-height: 100vh;
+}

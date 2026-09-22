@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html class="light" lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>ValaDeploy - Pipeline</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <script src="../styles/pipeline.tailwind.config.js"></script>
+    <link href="../styles/dashboard.css" rel="stylesheet">
+    <link href="../styles/pipeline.css" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/toast.css"> 
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-hidden flex h-screen" data-page="pipeline">
+
+    <!-- Shared Component: SideNavBar -->
+    <div data-component="../components/sidebar.html"></div>
+    <div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+    <div data-component="../components/confirm-modal.html"></div>
+
+
+    <!-- Main Content Area -->
+    <main class="flex-1 ml-64 h-full overflow-y-auto bg-background">
+        <div class="max-w-max-width mx-auto px-margin-desktop py-xl flex flex-col gap-lg">
+
+            <!-- ========================================== -->
+            <!-- VUE 1 : LISTE DE L'HISTORIQUE (Par défaut) -->
+            <!-- ========================================== -->
+            <div id="history-view">
+                <div class="flex items-start justify-between border-b border-outline-variant pb-md mb-lg">
+                    <div class="flex flex-col gap-xs min-w-0">
+                        <a href="stacks.html" class="inline-flex items-center gap-xs text-secondary hover:text-on-surface font-label-sm text-label-sm mb-xs w-fit">
+                            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                            Retour aux projets
+                        </a>
+                        <h1 class="font-headline-lg text-headline-lg text-on-surface">Historique des déploiements</h1>
+                        <p class="font-body-md text-body-md text-secondary">Projet : <span id="history-project-slug" class="font-mono-code text-on-surface font-semibold">...</span></p>
+                    </div>
+                </div>
+
+                <!-- État de chargement -->
+                <div id="history-loading" class="flex flex-col items-center justify-center py-20">
+                    <span class="material-symbols-outlined text-4xl text-primary-orange animate-spin mb-md">progress_activity</span>
+                    <span class="font-body-md text-body-md text-secondary">Chargement de l'historique...</span>
+                </div>
+
+                <!-- État vide -->
+                <div id="history-empty" class="hidden flex-col items-center justify-center py-20">
+                    <span class="material-symbols-outlined text-5xl text-outline-variant mb-md">history_toggle_off</span>
+                    <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Aucun déploiement</h3>
+                    <p class="font-body-md text-body-md text-secondary max-w-md text-center">
+                        Ce projet n'a pas encore d'historique. Lancez un premier build pour voir les résultats ici.
+                    </p>
+                </div>
+
+                <!-- Liste des runs -->
+                <div id="history-list" class="hidden flex flex-col gap-md">
+                    <!-- Injecté par JS -->
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VUE 2 : DÉTAILS DU RUN (Stepper + Terminal) -->
+            <!-- ========================================== -->
+            <div id="details-view" class="hidden flex flex-col gap-lg">
+                <!-- Page Header -->
+                <div class="flex items-start justify-between border-b border-outline-variant pb-md">
+                    <div class="flex flex-col gap-xs min-w-0">
+                        <button id="back-to-history-btn" class="inline-flex items-center gap-xs text-secondary hover:text-on-surface font-label-sm text-label-sm mb-xs w-fit">
+                            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                            Retour à l'historique
+                        </button>
+                        <div class="flex items-center gap-sm flex-wrap">
+                            <h1 class="font-headline-lg text-headline-lg text-on-surface">Détails du déploiement</h1>
+                            <span id="pipeline-status-badge" class="flex items-center gap-xs px-sm py-[2px] rounded-full border">
+                                <span class="w-2 h-2 rounded-full"></span>
+                                <span class="font-label-sm text-label-sm"></span>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-sm font-body-md text-body-md text-secondary flex-wrap">
+                            <span class="material-symbols-outlined text-[18px]">commit</span>
+                            <span id="pipeline-slug">—</span>
+                            <span class="text-outline-variant">/</span>
+                            <span id="pipeline-environment" class="font-mono-code text-label-md">—</span>
+                            <span class="text-outline-variant">/</span>
+                            <span id="pipeline-commit" class="font-mono-code text-label-sm">—</span>
+                            <span class="text-outline-variant mx-sm">|</span>
+                            <span id="pipeline-trigger" class="font-label-sm text-label-sm bg-surface-container-highest px-sm py-xs rounded">Manuel</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-sm shrink-0">
+                        <a id="view-live-btn" href="#" style="display:none;" class="bg-primary-container text-on-primary font-label-md text-label-md py-sm px-md rounded flex items-center gap-sm hover:opacity-90 transition-opacity">
+                            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                            View Live App
+                        </a>
+                        <button id="retry-btn" style="display:none;" class="bg-surface-container-lowest border border-outline-variant text-on-surface font-label-md text-label-md py-sm px-md rounded flex items-center gap-sm hover:border-on-surface transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">replay</span>
+                            Retry Build
+                        </button>
+                        <button id="cancel-btn" style="display:none;" class="bg-surface-container-lowest border border-outline-variant text-on-surface font-label-md text-label-md py-sm px-md rounded flex items-center gap-sm hover:border-error hover:text-error transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">stop_circle</span>
+                            Cancel Build
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pipeline Layout Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-xl flex-1">
+                    <!-- Timeline (Stepper) -->
+                    <div id="pipeline-steps" class="lg:col-span-4 flex flex-col relative py-sm">
+                        <div class="py-lg text-center text-secondary">
+                            <span class="material-symbols-outlined text-[20px] animate-spin align-middle">progress_activity</span>
+                            Chargement des étapes...
+                        </div>
+                    </div>
+
+                    <!-- Terminal -->
+                    <div id="pipeline-terminal" class="lg:col-span-8 flex flex-col bg-[#0b0f19] rounded-lg border border-outline-variant shadow-sm overflow-hidden h-[600px]">
+                        <!-- Terminal Header -->
+                        <div class="bg-[#1a2333] border-b border-[#2a364a] px-md py-sm flex items-center justify-between shrink-0">
+                            <div class="flex items-center gap-sm min-w-0">
+                                <div class="flex gap-xs shrink-0">
+                                    <span class="w-3 h-3 rounded-full bg-[#3f4d66]"></span>
+                                    <span class="w-3 h-3 rounded-full bg-[#3f4d66]"></span>
+                                    <span class="w-3 h-3 rounded-full bg-[#3f4d66]"></span>
+                                </div>
+                                <span id="terminal-title" class="font-mono-code text-label-sm text-[#8a9bb8] ml-sm truncate">Build Log</span>
+                            </div>
+                            <div class="flex items-center gap-sm shrink-0">
+                                <button id="download-logs-btn" title="Télécharger les logs" class="text-[#8a9bb8] hover:text-white transition-colors">
+                                    <span class="material-symbols-outlined text-[18px]">download</span>
+                                </button>
+                                <button id="fullscreen-btn" title="Plein écran" class="text-[#8a9bb8] hover:text-white transition-colors">
+                                    <span class="material-symbols-outlined text-[18px]">open_in_full</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Terminal Body -->
+                        <div id="terminal-body" class="flex-1 p-md overflow-y-auto terminal-scroll font-mono-code text-label-md text-[#b4c4de] leading-relaxed">
+                            <div class="opacity-70">En attente des logs...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="../scripts/config.js"></script>
+    <script src="../scripts/api/auth.js"></script>
+    <script src="../scripts/api/pipeline.js"></script>
+    <script src="../scripts/api/deployment.js"></script> 
+    <script src="../scripts/api/log.js"></script>
+    <script src="../scripts/components.js"></script>
+    <script src="../scripts/toast.js"></script>
+    <script src="../scripts/confirm-modal.js"></script>
+    <script src="../scripts/pipeline.js"></script>
+</body>
+</html>

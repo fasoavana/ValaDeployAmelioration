@@ -1,0 +1,87 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ValaDeploy - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="../styles/login.tailwind.config.js"></script>
+<link href="../styles/login.css" rel="stylesheet">
+<link rel="stylesheet" href="/styles/toast.css"> 
+</head>
+<body class="min-h-screen flex flex-col md:flex-row font-body-sm text-body-sm antialiased bg-surface">
+<div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+<div data-component="../components/confirm-modal.html"></div>
+
+
+    <div class="hidden md:flex md:w-1/2 bg-on-surface items-center justify-center p-xl relative overflow-hidden">
+<div class="relative z-10 text-center">
+<div class="mb-lg flex justify-center">
+<div class="w-16 h-16 bg-primary flex items-center justify-center rounded-xl">
+<span class="material-symbols-outlined text-white text-[40px]">rocket_launch</span>
+</div>
+</div>
+<h2 class="text-display text-white mb-md">Deploy at the speed of thought.</h2>
+<p class="text-body-lg text-surface-variant max-w-sm mx-auto">Join thousands of developers who trust ValaDeploy for their mission-critical infrastructure.</p>
+</div>
+<!-- Subtle background pattern -->
+<div class="absolute inset-0 opacity-10">
+<svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="40" id="grid" patternUnits="userSpaceOnUse" width="40">
+<path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100%" width="100%"></rect>
+</svg>
+</div>
+</div>
+<div class="w-full md:w-1/2 flex items-center justify-center p-margin-mobile md:p-xxl bg-surface">
+<div class="w-full max-w-md bg-surface-container-lowest p-xl md:p-xxl rounded-xl shadow-lg border border-outline-variant">
+<!-- Header -->
+<div class="mb-xl">
+<div class="flex items-center gap-sm mb-md">
+<div class="w-8 h-8 bg-primary flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined text-white text-body-md">rocket_launch</span>
+</div>
+<span class="font-headline-lg text-headline-md text-on-surface tracking-tight">ValaDeploy</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-xs">Welcome back</h1>
+<p class="font-body-md text-body-md text-[#667085]">Enter your credentials to access your console</p>
+</div>
+<!-- Form -->
+<form class="space-y-lg">
+<div class="space-y-sm">
+<label class="block font-label-md text-label-md text-on-surface" for="email">Email address</label>
+<input class="form-input w-full px-md py-sm font-body-md text-body-md bg-transparent rounded-lg border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary" id="email" name="email" placeholder="name@company.com" required="" type="email">
+</div>
+<div class="space-y-sm">
+<div class="flex items-center justify-between">
+<label class="block font-label-md text-label-md text-on-surface" for="password">Password</label>
+<a class="font-body-sm text-body-sm text-primary hover:underline" href="#">Forgot password?</a>
+</div>
+<input class="form-input w-full px-md py-sm font-body-md text-body-md bg-transparent rounded-lg border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary" id="password" name="password" placeholder="••••••••" required="" type="password">
+</div>
+<button class="btn-primary w-full py-md font-label-md text-label-md mt-md rounded-lg shadow-md hover:shadow-lg transition-all" type="submit">
+                Sign in to Console
+            </button>
+</form>
+<!-- Footer -->
+<div class="mt-xl text-center border-t border-outline-variant pt-xl">
+<p class="font-body-sm text-body-sm text-[#667085]">
+                Don't have an account? 
+                <a class="font-label-md text-label-md text-primary hover:underline ml-xs" href="#">Create an account</a>
+</p>
+</div>
+</div>
+</div>
+<script src="../scripts/config.js"></script>
+<script src="../scripts/api/auth.js"></script>
+<script src="../scripts/toast.js"></script>
+<script src="../scripts/confirm-modal.js"></script>
+<script src="../scripts/login.js"></script>
+</body></html>

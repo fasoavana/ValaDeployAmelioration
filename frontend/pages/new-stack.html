@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html class="light" lang="fr">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>New Stack - ValaDeploy</title>
+    
+    <!-- Google Fonts & Material Symbols -->
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="../styles/new-stack.tailwind.js"></script>
+    <link rel="stylesheet" href="../styles/stacks.css">
+    <link rel="stylesheet" href="/styles/toast.css"> 
+</head>
+<body class="flex bg-surface text-on-surface h-screen overflow-hidden">
+
+    <!-- Sidebar chargée dynamiquement -->
+    <div data-component="../components/sidebar.html"></div>
+    <div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+    <div data-component="../components/confirm-modal.html"></div>
+
+
+    <!-- Main Content Canvas -->
+    <main class="flex-1 w-full md:ml-64 mt-16 md:mt-0 overflow-y-auto h-full relative">
+        <div class="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-xl md:py-xxl">
+            
+            <!-- Page Header -->
+            <header class="mb-xxl max-w-2xl">
+                <h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-sm">Deploy a Stack</h2>
+                <p class="font-body-md text-body-md text-on-surface-variant">Configure and orchestrate multiple services as a single environment. Define your repositories, databases, and dependencies.</p>
+            </header>
+
+            <!-- Deployment Configuration Form -->
+            <form id="stackForm" class="max-w-4xl" onsubmit="handleStackSubmit(event)">
+                
+                <!-- Global Project Settings -->
+                <section class="bg-surface-container-lowest border border-outline-variant rounded-lg p-lg md:p-xl mb-xl">
+                    <div class="max-w-md">
+                        <label class="block font-label-md text-label-md text-on-surface mb-xs" for="stack_slug">
+                            Stack Slug <span class="text-error">*</span>
+                        </label>
+                        <input class="w-full h-10 border border-outline-variant rounded px-md font-mono-code text-body-sm bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" 
+                               id="stack_slug" name="stack_slug" placeholder="ex: mon-prod-stack" required type="text" pattern="^[a-z0-9-]+$" title="Lettres minuscules, chiffres et tirets uniquement"/>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Credentials used for accessing the stack resources.</p>
+                    </div>
+                </section>
+
+                <!-- Multi-Service Layout (Stack) -->
+                <div class="mb-xl relative">
+                    <h3 class="font-headline-md text-headline-md text-on-surface mb-lg">Services/Components</h3>
+                    
+                    <div id="componentsContainer" class="flex flex-col gap-0 relative z-10">
+                        
+                        <!-- Composant Database (Exemple pré-rempli) -->
+                        <div class="stack-item relative pb-lg component-card" data-kind="database">
+                            <div class="stack-connector"></div>
+                            <div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-lg md:p-xl relative z-10 hover:border-outline transition-colors">
+                                <div class="flex items-center gap-md mb-lg border-b border-outline-variant pb-md">
+                                    <div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center text-tertiary border border-outline-variant">
+                                        <span class="material-symbols-outlined text-[18px]">database</span>
+                                    </div>
+                                    <input class="component-name font-label-md text-label-md font-bold text-on-surface bg-transparent border-none p-0 focus:ring-0 focus:outline-none w-auto" placeholder="Service Name" type="text" value="database" required/>
+                                    <input type="hidden" class="component-kind" value="database">
+                                    <button class="ml-auto text-on-surface-variant hover:text-error transition-colors remove-component-btn" type="button" title="Supprimer ce composant">
+                                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+                                    <div>
+                                        <label class="block font-label-md text-label-md text-on-surface mb-xs">Docker Image</label>
+                                        <input class="component-db-image w-full h-10 border border-outline-variant rounded px-md font-mono-code text-body-sm bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="postgres:15-alpine" type="text" required/>
+                                    </div>
+                                    <div>
+                                        <label class="block font-label-md text-label-md text-on-surface mb-xs">Volume Name</label>
+                                        <input class="component-volume-name w-full h-10 border border-outline-variant rounded px-md font-mono-code text-body-sm bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="mon-stack-pgdata" type="text" required/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Composant Back (Exemple pré-rempli) -->
+                        <div class="stack-item relative pb-lg component-card" data-kind="back">
+                            <div class="stack-connector"></div>
+                            <div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-lg md:p-xl relative z-10 hover:border-outline transition-colors">
+                                <div class="flex items-center gap-md mb-lg border-b border-outline-variant pb-md">
+                                    <div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center text-primary border border-outline-variant">
+                                        <span class="material-symbols-outlined text-[18px]">dns</span>
+                                    </div>
+                                    <input class="component-name font-label-md text-label-md font-bold text-on-surface bg-transparent border-none p-0 focus:ring-0 focus:outline-none w-auto" placeholder="Service Name" type="text" value="back" required/>
+                                    <input type="hidden" class="component-kind" value="back">
+                                    <button class="ml-auto text-on-surface-variant hover:text-error transition-colors remove-component-btn" type="button" title="Supprimer ce composant">
+                                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-lg mb-xl">
+                                    <div class="md:col-span-2">
+                                        <label class="block font-label-md text-label-md text-on-surface mb-xs">Repo URL</label>
+                                        <div class="flex relative">
+                                            <span class="absolute left-3 top-2.5 text-on-surface-variant"><span class="material-symbols-outlined text-[18px]">link</span></span>
+                                            <input class="component-repo-url w-full h-10 border border-outline-variant rounded pl-10 pr-md font-body-sm text-body-sm bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="https://github.com/org/repo.git" type="url" required/>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block font-label-md text-label-md text-on-surface mb-xs">Branch</label>
+                                        <input class="component-branch w-full h-10 border border-outline-variant rounded px-md font-mono-code text-body-sm bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="main" type="text" value="main" required/>
+                                    </div>
+                                    <div>
+                                        <label class="block font-label-md text-label-md text-on-surface mb-xs">Listen Port</label>
+                                        <input class="component-port w-full h-10 border border-outline-variant rounded px-md font-mono-code text-body-sm bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="3000" type="number" required/>
+                                    </div>
+                                    <div class="md:col-span-2 flex items-center gap-2 mt-2">
+                                        <input type="checkbox" class="component-expose-publicly w-4 h-4 text-primary border-outline-variant rounded focus:ring-0" checked>
+                                        <label class="font-body-sm text-body-sm text-on-surface cursor-pointer select-none">Expose publicly via Traefik</label>
+                                    </div>
+                                </div>
+
+                                <!-- Variables d'environnement avec Toggle Manual/File -->
+                                <div class="mt-lg pt-lg border-t border-outline-variant">
+                                    <div class="flex items-center justify-between mb-md">
+                                        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Environment Variables</h4>
+                                        <div class="flex items-center gap-sm">
+                                            <button type="button" class="env-mode-toggle text-label-md font-label-md text-primary flex items-center gap-1 transition-colors" data-mode="manual">
+                                                <span class="material-symbols-outlined text-[16px]">edit</span> Manual
+                                            </button>
+                                            <span class="text-on-surface-variant">|</span>
+                                            <button type="button" class="env-mode-toggle text-label-md font-label-md text-on-surface-variant hover:text-on-surface flex items-center gap-1 transition-colors" data-mode="file">
+                                                <span class="material-symbols-outlined text-[16px]">upload_file</span> File .env
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Mode Manuel (par défaut) -->
+                                    <div class="env-manual-mode">
+                                        <div class="flex items-center justify-between mb-md">
+                                            <span class="font-body-sm text-body-sm text-on-surface-variant">Manual Entry</span>
+                                            <button type="button" class="text-label-md font-label-md text-on-surface-variant hover:text-on-surface flex items-center gap-1 transition-colors add-env-var-btn">
+                                                <span class="material-symbols-outlined text-[16px]">add</span> Add
+                                            </button>
+                                        </div>
+                                        <div class="max-h-64 overflow-y-auto pr-2 space-y-sm env-vars-list">
+                                            <div class="flex items-center gap-sm env-var-row">
+                                                <input class="env-key flex-1 h-10 border border-outline-variant rounded px-md font-mono-code text-mono-code bg-surface-container-low text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="CLÉ" type="text" value="DATABASE_URL"/>
+                                                <span class="text-on-surface-variant font-mono-code">=</span>
+                                                <div class="flex-1 relative">
+                                                    <input class="env-value w-full h-10 border border-outline-variant rounded px-md pr-10 font-mono-code text-mono-code bg-transparent text-on-surface focus:outline-none focus:border-on-surface transition-colors" placeholder="VALEUR" type="password" value="postgres://user:pass@database:5432/db"/>
+                                                    <button type="button" class="absolute right-2 top-2 text-primary hover:text-primary-container transition-colors toggle-visibility-btn" title="Afficher/Masquer">
+                                                        <span class="material-symbols-outlined text-[18px]">visibility_off</span>
+                                                    </button>
+                                                </div>
+                                                <button type="button" class="w-10 h-10 flex-shrink-0 flex items-center justify-center text-on-surface-variant hover:text-error transition-colors border border-transparent hover:border-outline-variant rounded remove-env-var-btn">
+                                                    <span class="material-symbols-outlined text-[18px]">close</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Mode Fichier (caché par défaut) -->
+                                    <div class="env-file-mode hidden">
+                                        <div class="border-2 border-dashed border-outline-variant rounded-lg p-lg text-center hover:border-primary transition-colors bg-surface-container-lowest">
+                                           <input type="file" 
+                                                class="env-file-input hidden" 
+                                                id="env-file-upload"/>
+                                            <label for="env-file-upload" 
+                                                   class="cursor-pointer flex flex-col items-center gap-sm">
+                                                <span class="material-symbols-outlined text-[32px] text-on-surface-variant">upload_file</span>
+                                                <span class="font-label-md text-label-md text-on-surface">Click to upload .env</span>
+                                                <span class="font-body-sm text-body-sm text-on-surface-variant">or drag and drop the file here</span>
+                                            </label>
+                                            <div class="env-file-info mt-md hidden">
+                                                <div class="flex items-center justify-center gap-sm text-primary">
+                                                    <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                                    <span class="font-label-md text-label-md env-filename-display"></span>
+                                                </div>
+                                                <button type="button" class="mt-sm text-error hover:text-error-container font-body-sm text-body-sm env-file-remove">
+                                                    Delete file
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-sm">
+                                            File will be parsed automatically. Expected format: <code class="bg-surface-container-low px-xs rounded">KEY=VALUE</code> per line.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Add Another Service Button avec Sélecteur -->
+                    <div class="stack-item relative mt-lg">
+                        <div class="relative">
+                            <!-- Sélecteur de type de composant (caché par défaut) -->
+                            <div id="component-picker" class="component-picker hidden absolute bottom-full left-0 right-0 mb-sm bg-surface-container-lowest border border-outline-variant rounded-lg shadow-lg z-30 overflow-hidden">
+                                <div class="p-md border-b border-outline-variant">
+                                    <p class="font-label-md text-label-md text-on-surface">Choose Component Type</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-sm p-md">
+                                    <!-- Database -->
+                                    <button type="button" class="component-picker-option flex flex-col items-center gap-sm p-lg rounded-lg border border-outline-variant hover:border-tertiary hover:bg-surface-variant transition-all group" data-kind="database">
+                                        <div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center text-tertiary border border-outline-variant group-hover:border-tertiary transition-colors">
+                                            <span class="material-symbols-outlined text-[24px]">database</span>
+                                        </div>
+                                        <span class="font-label-md text-label-md font-semibold text-on-surface">Database</span>
+                                        <span class="font-body-sm text-body-sm text-on-surface-variant text-center">PostgreSQL, MySQL, MongoDB...</span>
+                                    </button>
+                                    
+                                    <!-- Backend -->
+                                    <button type="button" class="component-picker-option flex flex-col items-center gap-sm p-lg rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-variant transition-all group" data-kind="back">
+                                        <div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center text-primary border border-outline-variant group-hover:border-primary transition-colors">
+                                            <span class="material-symbols-outlined text-[24px]">dns</span>
+                                        </div>
+                                        <span class="font-label-md text-label-md font-semibold text-on-surface">Backend</span>
+                                        <span class="font-body-sm text-body-sm text-on-surface-variant text-center">API, services, workers...</span>
+                                    </button>
+                                    
+                                    <!-- Frontend -->
+                                    <button type="button" class="component-picker-option flex flex-col items-center gap-sm p-lg rounded-lg border border-outline-variant hover:border-tertiary-container hover:bg-surface-variant transition-all group" data-kind="front">
+                                        <div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center text-tertiary-container border border-outline-variant group-hover:border-tertiary-container transition-colors">
+                                            <span class="material-symbols-outlined text-[24px]">web</span>
+                                        </div>
+                                        <span class="font-label-md text-label-md font-semibold text-on-surface">Frontend</span>
+                                        <span class="font-body-sm text-body-sm text-on-surface-variant text-center">React, Vue, HTML statique...</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Bouton Ajouter -->
+                            <button id="add-component-btn" class="w-full py-xl border border-dashed border-outline-variant rounded-lg text-on-surface-variant hover:text-on-surface hover:border-on-surface hover:bg-surface-container-lowest transition-all flex flex-col items-center justify-center gap-sm font-label-md text-label-md group relative z-10 bg-surface" type="button">
+                                <div class="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center group-hover:border-on-surface group-hover:bg-on-surface group-hover:text-surface-bright transition-colors">
+                                    <span class="material-symbols-outlined">add</span>
+                                </div>
+                                Add Component to Stack
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Actions -->
+                <div class="mt-xl pt-lg border-t border-outline-variant flex justify-between items-center bg-surface sticky bottom-0 pb-xl z-20">
+                    <p class="text-body-sm font-body-sm text-on-surface-variant hidden md:block">Configuration will be validated and scanned before deployment.</p>
+                    <div class="flex gap-md w-full md:w-auto">
+                        <a href="stacks.html" class="px-xl py-3 border border-outline-variant rounded font-label-md text-label-md text-on-surface bg-surface-container-lowest hover:bg-surface-variant transition-colors flex-1 md:flex-none text-center">Cancel</a>
+                        <button class="px-xl py-3 rounded font-label-md text-label-md text-on-primary bg-primary-container hover:opacity-90 transition-opacity flex items-center justify-center gap-2 flex-1 md:flex-none" type="submit">
+                            <span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+                            Deploy Stack
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="../scripts/api/auth.js"></script>
+    <script src="../scripts/api/project.js"></script>
+    <script src="../scripts/api/stack.js"></script> 
+    <script src="../scripts/components.js"></script>
+    <script src="../scripts/toast.js"></script>
+    <script src="../scripts/confirm-modal.js"></script>
+    <script src="../scripts/new-stack.js"></script>
+</body>
+</html>

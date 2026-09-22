@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ValaDeploy - Security Report</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<script src="../styles/security.tailwind.config.js"></script>
+<link href="../styles/security.css" rel="stylesheet">
+<link rel="stylesheet" href="/styles/toast.css"> 
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-hidden flex h-screen" data-page="security">
+<!-- Shared Component: SideNavBar (identique aux autres pages) -->
+<div data-component="../components/sidebar.html"></div>
+<div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+<div data-component="../components/confirm-modal.html"></div>
+
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 h-full overflow-y-auto bg-background">
+<div class="max-w-4xl mx-auto px-margin-desktop py-xl space-y-xl">
+<!-- Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-lg border-b border-outline-variant pb-lg">
+<div>
+<div class="flex items-center gap-2 font-body-sm text-body-sm text-secondary mb-md">
+<a class="hover:text-on-surface transition-colors" href="dashboard.html">Projects</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="font-mono-code text-mono-code" id="project-slug">loading...</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-xs">Security Report</h1>
+<p class="font-body-md text-body-md text-secondary">Last scan <span class="text-on-surface">2 minutes ago</span></p>
+</div>
+<div class="flex items-center gap-md">
+    <div class="font-label-md text-label-md" id="scan-status-badge">loading...</div>
+    <button id="rescan-btn" class="bg-primary-container text-white font-label-md text-label-md px-lg py-sm rounded-full hover:opacity-90 transition-opacity flex items-center gap-sm whitespace-nowrap" type="button">
+        <span class="material-symbols-outlined text-[18px]">replay</span> Re-scan
+    </button>
+</div>
+</div>
+<!-- Trivy: vulnerability counts -->
+<section>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md">Vulnerabilities (Trivy)</h2>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-lg">
+<div>
+<div class="text-4xl font-light severity-stat-critical mb-1" id="count-critical">–</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Critical</div>
+</div>
+<div>
+<div class="text-4xl font-light severity-stat-high mb-1" id="count-high">–</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">High</div>
+</div>
+<div>
+<div class="text-4xl font-light severity-stat-medium mb-1" id="count-medium">–</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Medium</div>
+</div>
+<div>
+<div class="text-4xl font-light severity-stat-low mb-1" id="count-low">–</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Low</div>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-secondary mt-md italic">
+                    Per-CVE breakdown (package, description, fix availability) requires a backend extension — see TODO in scripts/security.js.
+                </p>
+</section>
+<!-- Gitleaks: secrets -->
+<section>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md">Secrets (Gitleaks)</h2>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-lg divide-y divide-outline-variant" id="gitleaks-section">
+                    loading...
+                </div>
+</section>
+</div>
+</main>
+<script src="../scripts/components.js"></script>
+<script src="../scripts/toast.js"></script>
+<script src="../scripts/confirm-modal.js"></script>
+<script src="../scripts/api/auth.js"></script>
+<script src="../scripts/api/security.js"></script>
+<script src="../scripts/security-details.js"></script>
+</body></html>

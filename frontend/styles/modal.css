@@ -1,0 +1,23 @@
+/* css/modal.css
+   Styles du composant de confirmation (components/confirm-modal.html).
+   Les couleurs viennent du thème Tailwind existant (styles.css + tailwind-config.js) :
+   bg-danger-red, text-danger-red, bg-primary-orange, border-subtle, etc.
+*/
+
+#vala-modal-overlay {
+    display: none;
+}
+
+#vala-modal-overlay.vala-modal-open {
+    display: flex;
+}
+
+#vala-modal-overlay.vala-modal-visible #vala-modal-card {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Empêche le scroll de la page derrière le modal ouvert */
+body.vala-modal-locked {
+    overflow: hidden;
+}

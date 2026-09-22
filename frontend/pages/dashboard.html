@@ -1,0 +1,174 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ValaDeploy Dashboard</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="../styles/dashboard.tailwind.config.js"></script>
+<link href="../styles/dashboard.css" rel="stylesheet">
+<link rel="stylesheet" href="/styles/toast.css">
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-hidden flex h-screen" data-page="projects">
+
+<!-- Shared Component: SideNavBar and toast container -->
+<div data-component="../components/sidebar.html"></div>
+<div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+<div data-component="../components/confirm-modal.html"></div>
+
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 h-full overflow-y-auto bg-background">
+<div class="max-w-max-width mx-auto px-margin-desktop py-xl">
+
+<!-- Page Header -->
+<header class="flex justify-between items-center mb-xl">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Projects</h1>
+<p class="font-body-sm text-body-sm text-secondary mt-xs">Manage and monitor your deployments.</p>
+</div>
+<div class="flex items-center gap-lg">
+    <span id="user-fullname" class="font-label-sm text-label-sm text-secondary"></span>
+    <a href="new-project.html" class="bg-primary text-on-primary px-lg py-sm rounded-lg flex items-center gap-sm font-label-md text-label-md transition-all duration-150 hover:opacity-90 active:scale-[0.97]">
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        New Project
+    </a>
+</div>
+</header>
+
+<!-- Onglets Projects / Stacks -->
+<nav class="flex items-center gap-lg border-b border-outline-variant/50 mb-xl">
+    <a href="dashboard.html" class="pb-sm border-b-2 border-primary text-on-surface font-label-md text-label-md flex items-center gap-sm">
+        Projects
+        <span id="total-projects-badge" class="bg-primary-container/10 text-primary font-label-sm text-label-sm px-sm rounded-full">20</span>
+    </a>
+    <a href="stacks.html" class="pb-sm border-b-2 border-transparent text-secondary hover:text-on-surface font-label-md text-label-md transition-colors">Stacks</a>
+</nav>
+
+<!-- Statistics Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl">
+    <!-- Stat Card 1 -->
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-xs text-secondary">
+                <span class="material-symbols-outlined text-[18px]">folder</span>
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Total Projects</span>
+            </div>
+            <span class="bg-surface-container-high text-secondary font-label-sm text-label-sm px-sm py-[2px] rounded">All spaces</span>
+        </div>
+        <div class="flex items-baseline gap-sm">
+            <div id="total-projects" class="font-display text-display text-on-surface">0</div>
+            <span class="font-body-sm text-body-sm text-secondary">active workspaces</span>
+        </div>
+    </div>
+    <!-- Stat Card 2 -->
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-xs text-secondary">
+                <span class="material-symbols-outlined text-[18px]">radar</span>
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Critical Vuln Failures</span>
+            </div>
+            <span class="bg-error-container text-error font-label-sm text-label-sm px-sm py-[2px] rounded flex items-center gap-xs">
+                <span class="w-[6px] h-[6px] rounded-full bg-error inline-block"></span>
+                Needs review
+            </span>
+        </div>
+        <div class="flex items-baseline gap-sm">
+            <div id="critical-vulns" class="font-display text-display text-error">0%</div>
+            <span class="font-body-sm text-body-sm text-secondary">high severity rate</span>
+        </div>
+    </div>
+    <!-- Stat Card 3 -->
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-xs text-secondary">
+                <span class="material-symbols-outlined text-[18px]">memory</span>
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Running Containers</span>
+            </div>
+            <span class="bg-[#e6f6ee] text-[#12B76A] font-label-sm text-label-sm px-sm py-[2px] rounded flex items-center gap-xs">
+                <span class="w-[6px] h-[6px] rounded-full bg-[#12B76A] inline-block"></span>
+                healthy
+            </span>
+        </div>
+        <div class="flex items-baseline gap-sm">
+            <div id="running-containers" class="font-display text-display text-on-surface">0</div>
+            <span class="font-body-sm text-body-sm text-secondary">instances allocated</span>
+        </div>
+    </div>
+</section>
+
+<!-- Project List Table -->
+<section class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg overflow-hidden">
+
+    <!-- Filter bar -->
+    <div class="flex items-center justify-between px-lg py-md border-b border-outline-variant/50 gap-lg">
+        <div class="relative w-full max-w-[320px]">
+            <span class="material-symbols-outlined text-[18px] text-secondary absolute left-md top-1/2 -translate-y-1/2 pointer-events-none">search</span>
+            <input id="project-filter" type="text" placeholder="Search for a project..."
+                class="w-full pl-[40px] pr-md py-sm border border-outline-variant/50 rounded-full font-body-sm text-body-sm text-on-surface placeholder:text-secondary bg-surface transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+        </div>
+        <span id="showing-count" class="font-body-sm text-body-sm text-secondary shrink-0 whitespace-nowrap">Showing 0 of 0 projects</span>
+    </div>
+
+    <div class="w-full overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-outline-variant/50 bg-surface-container-low">
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Project</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Status</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Commit</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Replicas</th>
+                    <th class="py-md px-lg text-right"></th>
+                </tr>
+            </thead>
+            <tbody class="font-body-sm text-body-sm text-on-surface divide-y divide-outline-variant/30" id="projects-table-body">
+                <!-- Les lignes sont générées dynamiquement par api/dashboard.js (createProjectRow) -->
+                <!-- Ligne de chargement -->
+                <tr id="loading-row">
+                    <td colspan="5" class="py-lg text-center text-secondary">
+                        <div class="flex items-center justify-center gap-sm">
+                            <span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+                            Loading projects...
+                        </div>
+                    </td>
+                </tr>
+                <!-- Ligne "aucun projet" (cachée par défaut) -->
+                <tr id="empty-row" style="display: none;">
+                    <td colspan="5" class="py-xl text-center text-secondary">
+                        <span class="material-symbols-outlined text-4xl block mb-sm">folder_open</span>
+                        <p>No projects at the moment</p>
+                        <a href="new-project.html" class="inline-block mt-md px-lg py-sm bg-primary-container text-on-primary rounded-lg hover:opacity-90 transition-all duration-150 active:scale-[0.97]">
+                            Create your first project
+                        </a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between px-lg py-md border-t border-outline-variant/50">
+        <span id="page-indicator" class="font-body-sm text-body-sm text-secondary">Page 1 of 1</span>
+        <div class="flex items-center gap-sm">
+            <button id="prev-page" class="px-md py-xs border border-outline-variant/50 rounded-lg font-label-md text-label-md text-secondary hover:bg-surface-container-low hover:text-on-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>Previous</button>
+            <button id="next-page" class="px-md py-xs border border-outline-variant/50 rounded-lg font-label-md text-label-md text-secondary hover:bg-surface-container-low hover:text-on-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>Next</button>
+        </div>
+    </div>
+</section>
+
+</div>
+</main>
+
+<!-- Scripts -->
+<script src="../scripts/api/auth.js"></script>
+<script src="../scripts/api/project.js"></script>
+<script src="../scripts/components.js"></script>
+<script src="../scripts/toast.js"></script>
+<script src="../scripts/confirm-modal.js"></script>
+<script src="../scripts/dashboard.js"></script>
+</body></html>

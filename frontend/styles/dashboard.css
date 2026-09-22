@@ -1,0 +1,57 @@
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Badges de statut — alignés sur ProjectType/status du backend :
+   created | building | running | stopped | error */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+}
+
+.status-running { background-color: rgba(18, 183, 106, 0.1); }
+.status-running .status-dot { background-color: #12B76A; }
+
+.status-error { background-color: rgba(186, 26, 26, 0.08); }
+.status-error .status-dot { background-color: #ba1a1a; }
+
+.status-stopped { background-color: #d9e3fb; }
+.status-stopped .status-dot { background-color: #5e5e5e; }
+
+.status-building { background-color: rgba(167, 58, 0, 0.1); }
+.status-building .status-dot {
+    background-color: #a73a00;
+    animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.status-created { background-color: #f0f3ff; }
+.status-created .status-dot { background-color: #8f7065; }
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* Micro-interactions — apparition douce des lignes du tableau */
+@keyframes row-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.project-row {
+    animation: row-fade-in 0.22s ease-out both;
+}
+
+/* Bouton de suppression — visible au focus clavier même si la ligne n'est pas survolée */
+.delete-project-btn:focus-visible {
+    opacity: 1;
+    outline: 2px solid #ba1a1a;
+    outline-offset: 2px;
+}

@@ -1,0 +1,125 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ValaDeploy - The Mini-PaaS for Developers</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="../styles/tailwind.config.js"></script>
+<link href="../styles/index.css" rel="stylesheet">
+</head>
+<body class="bg-surface text-on-surface font-body-md text-body-md min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface border-b border-secondary-fixed">
+<div class="flex items-center gap-xl">
+<a class="font-headline-md text-headline-md font-bold text-on-surface tracking-tight" href="#">ValaDeploy</a>
+<div class="hidden md:flex gap-lg">
+<a class="font-label-md text-label-md text-on-secondary-container hover:text-on-surface transition-colors duration-200" href="#">Projects</a>
+<a class="font-label-md text-label-md text-on-secondary-container hover:text-on-surface transition-colors duration-200" href="#">Security</a>
+<a class="font-label-md text-label-md text-on-secondary-container hover:text-on-surface transition-colors duration-200" href="#">Settings</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="hidden md:flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined icon-thin text-on-secondary-container" data-icon="help_outline">help_outline</span>
+</button>
+<button class="hidden md:flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined icon-thin text-on-secondary-container" data-icon="notifications">notifications</span>
+</button>
+<a class="bg-surface-container-lowest border border-on-surface text-on-surface font-label-md text-label-md px-md py-sm rounded-DEFAULT hover:bg-on-surface hover:text-surface transition-colors" href="#">New Project</a>
+</div>
+</nav>
+<!-- Main Canvas -->
+<main class="flex-grow pt-16 flex flex-col items-center w-full">
+<!-- Hero Section -->
+<section class="w-full max-w-max-width mx-auto px-margin-desktop py-xxl flex flex-col items-center justify-center min-h-[716px] text-center">
+<h1 class="font-display text-display text-on-surface max-w-4xl tracking-tighter fade-in-up">
+                Deploy Docker in seconds.
+            </h1>
+<p class="font-body-lg text-body-lg text-on-secondary-container max-w-2xl mt-md fade-in-up delay-100">
+                The mini-PaaS for developers who value security and simplicity. Strip away the noise and focus on shipping code.
+            </p>
+<div class="mt-xl fade-in-up delay-200">
+<a class="inline-flex items-center justify-center bg-primary-container text-on-primary font-label-md text-label-md px-xl py-md rounded-DEFAULT hover:opacity-90 transition-opacity" href="#">
+                    Get Started for Free
+                </a>
+</div>
+<div class="mt-xxl w-full max-w-3xl aspect-[21/9] rounded-xl overflow-hidden border border-secondary-fixed fade-in-up delay-300">
+<img class="w-full h-full object-cover" data-alt="A highly minimalist, ultra-clean digital abstract representation of a cloud deployment pipeline. The scene is set against a pure white background. Thin, precise geometric lines and subtle monochromatic gray boxes represent Docker containers connecting to a central server. A single, sharp accent of vivid orange highlights the successful deployment path. The lighting is high-key, flat, and shadowless, evoking a modern, enterprise-grade developer tool." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBiL3NDccPlujZXL5myyFs0KNXIJhZ_0lNdkP6KEHP_yx4hYQPRZGLstYKjkg1FHi7NXsvoGifrIUiwJao9TeP57sHV0k5Np4qxtDI6O5odZ5V37B5oguUFh4ywdazYk-1bzumDNIZpu1j26wHfU-w6SJhfJh4sZxs7HbzDrFrDREOr0UMfvHuyCd3ag7Uxy84jUPbQTaINbQeu-LJsU5SRyTfBXRBBIzeJJ-usQ7DC5VUgUczCqSf7g">
+</div>
+</section>
+<!-- Features Grid -->
+<section class="w-full bg-surface-container-low border-t border-secondary-fixed py-xxl">
+<div class="max-w-max-width mx-auto px-margin-desktop">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg fade-in-up">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-secondary-fixed p-xl flex flex-col group hover:border-on-surface transition-colors duration-300">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined icon-thin text-on-surface text-[24px]" data-icon="inventory_2">inventory_2</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Git-to-Live</h3>
+</div>
+<hr class="border-secondary-fixed w-full mb-md group-hover:border-on-surface transition-colors duration-300">
+<p class="font-body-md text-body-md text-on-secondary-container">
+                            Clone and build automatically. Push your code to any branch and watch it deploy instantly without writing complex CI/CD pipelines.
+                        </p>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-secondary-fixed p-xl flex flex-col group hover:border-on-surface transition-colors duration-300">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined icon-thin text-on-surface text-[24px]" data-icon="security">security</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Built-in Security</h3>
+</div>
+<hr class="border-secondary-fixed w-full mb-md group-hover:border-on-surface transition-colors duration-300">
+<p class="font-body-md text-body-md text-on-secondary-container">
+                            Trivy vulnerability scanning before every deploy. Ensure your containers are secure by default, blocking deployments that fail safety checks.
+                        </p>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-secondary-fixed p-xl flex flex-col group hover:border-on-surface transition-colors duration-300">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined icon-thin text-on-surface text-[24px]" data-icon="bar_chart">bar_chart</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Real-time Logs</h3>
+</div>
+<hr class="border-secondary-fixed w-full mb-md group-hover:border-on-surface transition-colors duration-300">
+<p class="font-body-md text-body-md text-on-secondary-container mb-md">
+                            Live container streaming. Monitor your application's pulse instantly.
+                        </p>
+<!-- Simulated Log Component -->
+<div class="bg-on-surface text-on-primary font-mono-code text-mono-code p-sm rounded-DEFAULT mt-auto overflow-hidden text-[12px] opacity-80">
+                            &gt; fetching logs...<br>
+                            &gt; [info] container started successfully<br>
+                            &gt; [info] listening on port 8080
+                        </div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest border border-secondary-fixed p-xl flex flex-col group hover:border-on-surface transition-colors duration-300">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined icon-thin text-on-surface text-[24px]" data-icon="route">route</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Auto-Routing</h3>
+</div>
+<hr class="border-secondary-fixed w-full mb-md group-hover:border-on-surface transition-colors duration-300">
+<p class="font-body-md text-body-md text-on-secondary-container">
+                            Native Traefik integration. Dynamic routing, automatic SSL provisioning via Let's Encrypt, and zero-downtime reloads out of the box.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-xl px-margin-desktop flex flex-col md:flex-row justify-between items-center max-w-max-width mx-auto border-t border-secondary-fixed bg-surface">
+<div class="text-on-surface font-bold font-label-md text-label-md mb-md md:mb-0">
+            ValaDeploy
+        </div>
+<div class="flex flex-wrap justify-center gap-lg">
+<a class="font-body-sm text-body-sm text-on-secondary-container hover:text-on-surface transition-colors" href="#">Privacy</a>
+<a class="font-body-sm text-body-sm text-on-secondary-container hover:text-on-surface transition-colors" href="#">Terms</a>
+<a class="font-body-sm text-body-sm text-on-secondary-container hover:text-on-surface transition-colors" href="#">API Docs</a>
+<a class="font-body-sm text-body-sm text-on-secondary-container hover:text-on-surface transition-colors" href="#">Status</a>
+</div>
+<div class="font-body-sm text-body-sm text-on-secondary-container mt-md md:mt-0">
+            © 2024 ValaDeploy Inc.
+        </div>
+</footer>
+<script src="../scripts/index.js"></script>
+</body></html>

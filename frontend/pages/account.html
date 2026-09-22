@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ValaDeploy - Account Management</title>
+
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"/>
+
+<!-- Config Tailwind -->
+<script id="tailwind-config" src="../styles/account.tailwind.config.js"></script>
+
+<!-- Styles custom -->
+<link href="../styles/account.css" rel="stylesheet"/>
+<link rel="stylesheet" href="../styles/toast.css"> 
+</head>
+<body class="antialiased text-on-surface" data-page="account">
+
+<div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+<div data-component="../components/confirm-modal.html"></div>
+
+<!-- Wrapper isolant la mise en page (flex + min-h-screen) du <body> global,
+     pour ne pas casser d'autres pages qui réutiliseraient un <body> différent. -->
+<div class="page-wrapper flex w-full">
+
+    <!-- Sidebar (composant réutilisable) -->
+    <div data-component="../components/sidebar.html"></div>
+
+
+
+    <!-- Main Content Canvas -->
+    <main class="ml-64 flex-1 flex flex-col w-full max-w-max-width mx-auto px-margin-desktop py-xl">
+        <header class="mb-xl">
+            <h2 class="font-headline-lg text-headline-lg text-primary-dark mb-unit">Account Settings</h2>
+            <p class="font-body-md text-body-md text-subtle">Manage your personal profile, security preferences, and active sessions.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+            <!-- Left Column: Profile & Session -->
+            <div class="lg:col-span-8 flex flex-col gap-gutter">
+
+                <!-- Profile Information Card -->
+                <section class="bg-surface-container-lowest border border-subtle rounded-lg flex flex-col">
+                    <div class="px-lg py-md border-b border-subtle flex justify-between items-center">
+                        <h3 class="font-label-md text-label-md text-primary-dark">Profile Information</h3>
+                        <div class="bg-surface-container-highest px-sm py-xs rounded-DEFAULT font-label-sm text-label-sm text-primary-dark flex items-center gap-xs">
+                            <span class="material-symbols-outlined" style="font-size: 14px;" >admin_panel_settings</span>
+                            <span id="profile-role">Admin</span>
+                        </div>
+                    </div>
+                    <div class="p-lg flex flex-col sm:flex-row gap-lg items-start">
+                        <div class="w-24 h-24 rounded-full bg-surface-container overflow-hidden border border-subtle flex-shrink-0">
+                            <img class="w-full h-full object-cover" alt="A minimalist, high-key corporate headshot avatar inside a clean circular container. 
+                            The background is pure white. The subject is professional, softly lit, f
+                            itting a modern light-mode enterprise dashboard aesthetic." 
+                            src="../assets/images/profil.jpeg"/>
+                        </div>
+                        <div class="flex-1 flex flex-col gap-md w-full">
+                            <div>
+                                <label class="font-label-sm text-label-sm text-subtle block mb-xs">Full Name</label>
+                                <div class="font-body-md text-body-md text-primary-dark pb-xs border-b border-subtle" id="profile-fullname">Jean-Luc Vala</div>
+                            </div>
+                            <div>
+                                <label class="font-label-sm text-label-sm text-subtle block mb-xs">Email Address</label>
+                                <div class="font-body-md text-body-md text-primary-dark pb-xs border-b border-subtle" id="profile-email">jl.vala@company.com</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Change Password Card -->
+                <section class="bg-surface-container-lowest border border-subtle rounded-lg flex flex-col">
+                    <div class="px-lg py-md border-b border-subtle">
+                        <h3 class="font-label-md text-label-md text-primary-dark">Change Password</h3>
+                    </div>
+                    <div class="p-lg flex flex-col gap-md">
+                        <div>
+                            <label class="font-label-sm text-label-sm text-subtle block mb-xs" for="current_password">Current Password</label>
+                            <input class="w-full border border-subtle rounded-DEFAULT px-md py-sm font-body-sm text-body-sm focus:outline-none focus:border-black transition-colors" id="current_password" placeholder="Enter current password" type="password"/>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                            <div>
+                                <label class="font-label-sm text-label-sm text-subtle block mb-xs" for="new_password">New Password</label>
+                                <input class="w-full border border-subtle rounded-DEFAULT px-md py-sm font-body-sm text-body-sm focus:outline-none focus:border-black transition-colors" id="new_password" placeholder="Enter new password" type="password"/>
+                            </div>
+                            <div>
+                                <label class="font-label-sm text-label-sm text-subtle block mb-xs" for="confirm_password">Confirm Password</label>
+                                <input class="w-full border border-subtle rounded-DEFAULT px-md py-sm font-body-sm text-body-sm focus:outline-none focus:border-black transition-colors" id="confirm_password" placeholder="Confirm new password" type="password"/>
+                            </div>
+                        </div>
+                        <div class="mt-sm flex justify-end">
+                            <button class="bg-primary-orange text-white font-label-md text-label-md px-lg py-sm rounded-DEFAULT hover:opacity-90 transition-opacity" type="button">
+                                Update Password
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Right Column: Status & Danger Zone -->
+            <div class="lg:col-span-4 flex flex-col gap-gutter">
+
+                <!-- Session Status -->
+                <section class="bg-surface-container-lowest border border-subtle rounded-lg p-lg">
+                    <h3 class="font-label-sm text-label-sm text-subtle uppercase mb-md">Current Session</h3>
+                    <div class="flex items-center gap-md">
+                        <div class="bg-success-green px-sm py-xs rounded-full flex items-center gap-xs">
+                            <div class="w-2 h-2 rounded-full dot-success animate-pulse"></div>
+                            <span class="font-label-sm text-label-sm">Active</span>
+                        </div>
+                        <span class="font-body-sm text-body-sm text-subtle" id="session-expiry-text">Expires in 4 hours</span>
+                    </div>
+                </section>
+
+                <!-- Danger Zone -->
+                <section class="bg-surface-container-lowest border border-error-container rounded-lg flex flex-col overflow-hidden">
+                    <div class="bg-error-container/20 px-lg py-md border-b border-error-container">
+                        <h3 class="font-label-md text-label-md text-danger-red flex items-center gap-sm">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">warning</span>
+                            Danger Zone
+                        </h3>
+                    </div>
+                    <div class="p-lg flex flex-col gap-md">
+                        <p class="font-body-sm text-body-sm text-subtle mb-sm">These actions are destructive and cannot be easily reversed.</p>
+                        <button id="btn-logout-everywhere" class="w-full bg-white border border-subtle text-primary-dark font-label-md text-label-md py-sm rounded-DEFAULT flex items-center justify-center gap-sm hover:bg-surface-variant transition-colors">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">logout</span>
+                            Logout
+                        </button>
+                        <button id="btn-delete-account" class="w-full bg-white border border-error text-danger-red font-label-md text-label-md py-sm rounded-DEFAULT flex items-center justify-center gap-sm hover:bg-error-container/30 transition-colors mt-sm">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">delete_forever</span>
+                            Delete Account
+                        </button>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+
+
+<!-- Script de chargement des composants -->
+ 
+<script src="../scripts/config.js"></script>
+<script src="../scripts/components.js"></script>
+<script src="../scripts/toast.js"></script>
+<script src="../scripts/confirm-modal.js"></script>
+<script src="../scripts/api/auth.js"></script>
+<script src="../scripts/account.js"></script>
+</body>
+</html>

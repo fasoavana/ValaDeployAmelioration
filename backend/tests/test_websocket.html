@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test WebSocket Logs</title>
+    <style>
+        body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+        #logs { white-space: pre-wrap; background: #000; padding: 10px; height: 400px; overflow-y: auto; border: 1px solid #444; }
+        input, button { padding: 8px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Test WebSocket — Logs de conteneur</h2>
+    <input type="text" id="slug" placeholder="nom du conteneur (slug)" value="kirikou-1" style="width: 300px;">
+    <button onclick="connect()">Connecter</button>
+    <button onclick="disconnect()">Déconnecter</button>
+    <div id="status">Statut : déconnecté</div>
+    <div id="logs"></div>
+
+    <script>
+        let ws = null;
+
+        function connect() {
+            const slug = document.getElementById('slug').value;
+            const url = `ws://app.localhost:8080/logs/${slug}`;
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                document.getElementById('status').innerText = 'Statut : connecté';
+                document.getElementById('logs').innerText += `--- Connexion ouverte vers ${slug} ---\n`;
+            };
+
+            ws.onmessage = (event) => {
+                document.getElementById('logs').innerText += event.data;
+                document.getElementById('logs').scrollTop = document.getElementById('logs').scrollHeight;
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').innerText = 'Statut : déconnecté';
+                document.getElementById('logs').innerText += '\n--- Connexion fermée ---\n';
+            };
+
+            ws.onerror = (error) => {
+                document.getElementById('logs').innerText += `\n--- Erreur WebSocket ---\n`;
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function disconnect() {
+            if (ws) ws.close();
+        }
+    </script>
+</body>
+</html>

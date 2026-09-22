@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ValaDeploy - Security</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<script src="../styles/security.tailwind.config.js"></script>
+<link href="../styles/security.css" rel="stylesheet">
+<link rel="stylesheet" href="/styles/toast.css">
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-hidden flex h-screen" data-page="security">
+<div data-component="../components/sidebar.html"></div>
+<div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+<div data-component="../components/confirm-modal.html"></div>
+
+<main class="flex-1 ml-64 h-full overflow-y-auto bg-background">
+<div class="max-w-max-width mx-auto px-margin-desktop py-xl">
+
+<!-- Page Header -->
+<header class="mb-xl">
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-xs">Security</h1>
+<p class="font-body-md text-body-md text-secondary">Vulnerability and secret scan status across all projects.</p>
+</header>
+
+<!-- Statistics Grid -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-lg mb-xl">
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm">
+        <div class="flex items-center gap-xs text-secondary">
+            <span class="material-symbols-outlined text-[18px]">shield</span>
+            <span class="font-label-sm text-label-sm uppercase tracking-wider">Projects Scanned</span>
+        </div>
+        <div id="sec-total-projects" class="font-display text-display text-on-surface">0</div>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm">
+        <div class="flex items-center gap-xs text-secondary">
+            <span class="material-symbols-outlined text-[18px]">block</span>
+            <span class="font-label-sm text-label-sm uppercase tracking-wider">Scans Blocked</span>
+        </div>
+        <div id="sec-blocked-count" class="font-display text-display text-error">0</div>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm">
+        <div class="flex items-center gap-xs text-secondary">
+            <span class="material-symbols-outlined text-[18px]">bug_report</span>
+            <span class="font-label-sm text-label-sm uppercase tracking-wider">Critical Vulns</span>
+        </div>
+        <div id="sec-critical-total" class="font-display text-display severity-stat-critical">0</div>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg p-lg flex flex-col gap-sm">
+        <div class="flex items-center gap-xs text-secondary">
+            <span class="material-symbols-outlined text-[18px]">key</span>
+            <span class="font-label-sm text-label-sm uppercase tracking-wider">Secrets Detected</span>
+        </div>
+        <div id="sec-secrets-total" class="font-display text-display severity-stat-high">0</div>
+    </div>
+</section>
+
+<!-- Security Table -->
+<section class="bg-surface-container-lowest border border-outline-variant/50 rounded-lg overflow-hidden">
+
+    <!-- Filter bar -->
+    <div class="flex items-center justify-between px-lg py-md border-b border-outline-variant/50">
+        <div class="relative w-full max-w-[320px]">
+            <span class="material-symbols-outlined text-[18px] text-secondary absolute left-sm top-1/2 -translate-y-1/2">search</span>
+            <input id="security-filter" type="text" placeholder="Filter projects..."
+                class="w-full pl-xl pr-md py-sm border border-outline-variant/50 rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-secondary focus:outline-none focus:ring-1 focus:ring-primary">
+        </div>
+        <span id="sec-showing-count" class="font-body-sm text-body-sm text-secondary shrink-0">Showing 0 of 0 projects</span>
+    </div>
+
+    <div class="w-full overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-outline-variant/50 bg-surface-container-low">
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Project</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Deploy status</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Critical vulns</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Secrets</th>
+                    <th class="py-md px-lg font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Scan result</th>
+                    <th class="py-md px-lg text-right"></th>
+                </tr>
+            </thead>
+            <tbody class="font-body-sm text-body-sm text-on-surface divide-y divide-outline-variant/30" id="security-table-body">
+                <tr id="loading-row">
+                    <td colspan="6" class="py-lg text-center text-secondary">
+                        <div class="flex items-center justify-center gap-sm">
+                            <span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+                            Chargement des rapports de sécurité...
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+</div>
+</main>
+<script src="../scripts/components.js"></script>
+<script src="../scripts/toast.js"></script>
+<script src="../scripts/confirm-modal.js"></script>
+<script src="../scripts/api/auth.js"></script>
+<script src="../scripts/api/security.js"></script>
+<script src="../scripts/security.js"></script>
+</body></html>

@@ -1,0 +1,29 @@
+body {
+    background-color: #ffffff; /* Override theme for ultra-clean look */
+    color: #000000;
+}
+.form-input {
+    border: 1px solid #eaecf0;
+    border-radius: 0; /* Boxy aesthetic */
+}
+.form-input:focus {
+    border-color: #000000;
+    box-shadow: none;
+    outline: none;
+}
+.btn-primary {
+    background-color: #ff5c00;
+    color: #ffffff;
+    border-radius: 0;
+    transition: background-color 0.2s;
+}
+.btn-primary:hover {
+    background-color: #e05200;
+}
+.link-secondary {
+    color: #667085;
+    transition: color 0.2s;
+}
+.link-secondary:hover {
+    color: #000000;
+}
