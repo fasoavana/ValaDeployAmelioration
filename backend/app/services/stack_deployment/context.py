@@ -33,6 +33,7 @@ class StackDeploymentContext:
         self.destination_path = None
         self.clone_result = None
         self.build_result = None
+        self.detect_result = None
 
         # Signal levé par un ComponentDeployer quand un checkpoint d'annulation
         # est déclenché : l'orchestrateur doit alors `break` la boucle des

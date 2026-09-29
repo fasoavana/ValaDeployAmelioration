@@ -7,6 +7,7 @@ from app.models.project import FailReason
 from app.services.build_preparation import prepare_build_environment
 from app.services.build_service import build_docker_image, detect_project_type, generate_dockerfile
 from app.services.container_service import scale_project
+from app.services.security_profile import get_security_profile
 from app.services.deployment_run_tracker import update_pipeline_run
 from app.services.git_service import clone_repository
 from app.services.project_service import ProjectService
@@ -123,6 +124,7 @@ class AppComponentDeployer(ComponentDeployer):
         )
         try:
             detect_result = detect_project_type(ctx.destination_path)
+            ctx.detect_result = detect_result
             generate_dockerfile(detect_result, ctx.destination_path)
             prepare_build_environment(
                 project_path=ctx.destination_path,
@@ -230,6 +232,7 @@ class AppComponentDeployer(ComponentDeployer):
                 port=comp_payload["port"],
                 plain_envs_var=plain_envs,
                 expose_traefik=comp_payload.get("expose_publicly", False),
+                security_profile=get_security_profile(ctx.detect_result),
             )
             ProjectService.finalize_component_success(
                 ctx.db, component.id, container_ids=container_ids, commit_hash=ctx.clone_result["commit_hash"]

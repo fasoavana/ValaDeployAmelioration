@@ -4,6 +4,7 @@ from app.services.traefik_service import build_traefik_labels
 import docker
 from app.core.security import decrypt_data
 from app.models.project import ProjectStatus 
+from app.services.security_profile import SecurityProfile, STANDARD_PROFILE
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,8 @@ def build_container_name(component_slug: str, replica_index: int = 1) -> str:
 
 def run_container(image_name: str, slug: str, network: str, envs_var: dict = None,
                    extra_networks: list = None, volumes: dict = None,
-                   expose_traefik: bool = True, plain_envs_var: dict = None, port: int = None) -> str:
+                   expose_traefik: bool = True, plain_envs_var: dict = None, port: int = None,
+                   security_profile: SecurityProfile | None = None) -> str:
     """
     ...
     plain_envs_var (dict, optional): variables déjà en clair (non chiffrées), fusionnées
@@ -62,6 +64,12 @@ def run_container(image_name: str, slug: str, network: str, envs_var: dict = Non
     if plain_envs_var:
         var_envs.update(plain_envs_var)
 
+    security_kwargs = (
+        security_profile.docker_kwargs()
+        if security_profile is not None
+        else {}
+    )
+
     container = client.containers.run(
         image=image_name,
         name=slug,
@@ -69,7 +77,8 @@ def run_container(image_name: str, slug: str, network: str, envs_var: dict = Non
         environment=var_envs,
         labels=traefik_labels,
         volumes=volumes,
-        detach=True
+        detach=True,
+        **security_kwargs,
     )
 
     if extra_networks:
@@ -85,7 +94,8 @@ def run_container(image_name: str, slug: str, network: str, envs_var: dict = Non
 
 def scale_project(image_name: str, slug: str, network: str, desired_replicas: int,
                    envs_var: dict = None, extra_networks: list = None,
-                   plain_envs_var: dict = None, port: int = None, expose_traefik: bool = True) -> list:
+                   plain_envs_var: dict = None, port: int = None, expose_traefik: bool = True,
+                   security_profile: SecurityProfile | None = STANDARD_PROFILE) -> list:
     """
     Scale the number of running containers for a project.
 
@@ -139,6 +149,7 @@ def scale_project(image_name: str, slug: str, network: str, desired_replicas: in
             plain_envs_var=plain_envs_var,
             port=port,
             expose_traefik=expose_traefik,
+            security_profile=security_profile,
         )
         running_container_ids.append(new_container_id)
     return running_container_ids
