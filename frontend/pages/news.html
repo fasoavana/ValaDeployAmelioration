@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>News & Guides - ValaDeploy</title>
+    
+    <!-- Google Fonts & Material Symbols -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS & Config -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="../styles/news.tailwind.config.js"></script>
+    
+    <!-- Custom Styles & Toast -->
+    <link href="../styles/news.css" rel="stylesheet">
+    <link href="../styles/toast.css" rel="stylesheet">
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-hidden flex h-screen" data-page="news">
+
+    <!-- Shared Components -->
+    <div data-component="../components/sidebar.html"></div>
+    <div data-component="../components/toast-container.html"></div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 ml-64 h-full overflow-y-auto bg-background">
+        <div class="max-w-max-width mx-auto px-margin-desktop py-xl flex flex-col gap-xl">
+
+            <!-- Page Header -->
+            <section class="flex flex-col gap-lg">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+                    <div class="flex flex-col gap-xs">
+                        <div class="flex items-center gap-xs">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-container/10 text-primary">
+                                <span class="material-symbols-outlined text-[16px]">newspaper</span>
+                            </span>
+                            <span class="font-label-sm text-label-sm text-secondary tracking-wide uppercase">Activity Feed & Insights</span>
+                        </div>
+                        <h1 class="font-display text-display text-on-surface tracking-tight">News & Guides</h1>
+                        <p class="font-body-md text-body-md text-secondary max-w-2xl">
+                            Friendly updates, actionable links, and post-deployment tips tailored to your recent actions.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-sm self-start md:self-center">
+                        <button id="mark-all-read-btn" class="flex items-center gap-xs px-md py-xs rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors shadow-sm">
+                            <span class="material-symbols-outlined text-[18px]">done_all</span>
+                            <span>Mark all as read</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Pills -->
+                <div class="flex items-center gap-xs overflow-x-auto pb-xs pt-xs no-scrollbar">
+                    <button class="filter-pill active-pill px-md py-xs rounded-full font-label-sm text-label-sm bg-on-surface text-surface-container-lowest transition-colors shadow-sm" data-filter="all">
+                        All Updates <span class="ml-xs opacity-75 font-mono-code text-[11px]">(0)</span>
+                    </button>
+                    <button class="filter-pill px-md py-xs rounded-full font-label-sm text-label-sm bg-surface-container-low text-secondary hover:text-on-surface hover:bg-surface-container transition-colors" data-filter="deployment">
+                        Deployments & Links <span class="ml-xs opacity-75 font-mono-code text-[11px]">(0)</span>
+                    </button>
+                    <button class="filter-pill px-md py-xs rounded-full font-label-sm text-label-sm bg-surface-container-low text-secondary hover:text-on-surface hover:bg-surface-container transition-colors" data-filter="security">
+                        Security & Advice <span class="ml-xs opacity-75 font-mono-code text-[11px]">(0)</span>
+                    </button>
+                    <button class="filter-pill px-md py-xs rounded-full font-label-sm text-label-sm bg-surface-container-low text-secondary hover:text-on-surface hover:bg-surface-container transition-colors" data-filter="announcement">
+                        PaaS Announcements <span class="ml-xs opacity-75 font-mono-code text-[11px]">(0)</span>
+                    </button
+                </div>
+            </section>
+
+            <!-- Dynamic Feed Container -->
+            <section class="flex flex-col gap-md" id="news-feed-container">
+                <!-- Loading State -->
+                <div id="news-loading" class="py-xl text-center text-secondary">
+                    <div class="flex items-center justify-center gap-sm">
+                        <span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+                        Loading updates...
+                    </div>
+                </div>
+                <!-- Content will be injected here by scripts/news.js -->
+            </section>
+
+            <!-- Footer -->
+            <footer class="mt-md p-lg rounded-xl bg-surface-container-low flex flex-col md:flex-row items-center justify-between gap-md shadow-sm">
+                <div class="flex items-center gap-md">
+                    <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed shrink-0">
+                        <span class="material-symbols-outlined text-[22px]">support_agent</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <h4 class="font-label-md text-label-md font-semibold text-on-surface">Got stuck or need deployment guidance?</h4>
+                        <p class="font-body-sm text-body-sm text-secondary">Our developer community and engineering documentation are always open.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-sm w-full md:w-auto justify-end">
+                    <a class="px-md py-xs rounded-lg bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-sm text-label-sm transition-colors shadow-sm" href="#">Documentation</a>
+                    <a class="px-md py-xs rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm hover:opacity-95 transition-opacity shadow-sm" href="#">Community Discord</a>
+                </
+            </footer>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="../scripts/components.js"></script>
+    <script src="../scripts/toast.js"></script>
+    <script src="../scripts/api/news.js"></script>
+    <script src="../scripts/news.js"></script>
+</body>
+</html>

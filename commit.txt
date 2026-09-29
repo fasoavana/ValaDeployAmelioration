@@ -1,0 +1,15 @@
+fix(stack-fao): résout la communication inter-composants bout en bout
+
+- DB_URL au lieu de DATABASE_URL (clé lue par Laravel)
+- config:cache déplacé du build vers l'entrypoint (runtime)
+- Ports Traefik corrigés (8000 back, 80 front)
+- Suffixe replica (-1) ajouté au hostname back utilisé par VITE_API_URL
+- Préfixe /api/v1 ajouté à VITE_API_URL (convention du client axios front)
+- FRONTEND_URL injecté au back pour satisfaire config/cors.php
+
+Stack fao (front/back/db) validée fonctionnelle de bout en bout.
+
+Dette technique identifiée (non traitée ici):
+- Nommage de conteneur dupliqué entre le pipeline et scale_project
+- SKIP_SECURITY_GATE_FOR_TEST toujours à True
+- Pas de détection auto du port d'écoute par type de projet

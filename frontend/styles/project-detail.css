@@ -1,0 +1,23 @@
+.pulse-live {
+    animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+}
+
+/* État de l'indicateur LIVE selon la connexion WebSocket réelle */
+#live-indicator.connected .live-dot {
+    background-color: #ff5c00; /* primary-container */
+}
+#live-indicator.disconnected .live-dot {
+    background-color: #8f7065; /* outline, gris neutre */
+    animation: none;
+}
+#live-indicator.disconnected .live-label::after {
+    content: ' (disconnected)';
+}
+
+#log-terminal {
+    scroll-behavior: smooth;
+}

@@ -1,0 +1,131 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ValaDeploy - Security Report</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<script src="../styles/security.tailwind.config.js"></script>
+<link href="../styles/security.css" rel="stylesheet">
+<link rel="stylesheet" href="/styles/toast.css"> 
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-hidden flex h-screen" data-page="security">
+<!-- Shared Component: SideNavBar (identique aux autres pages) -->
+<div data-component="../components/sidebar.html"></div>
+<div data-component="../components/toast-container.html"></div>
+    <!-- Composant modal de confirmation (chargé une seule fois par page) -->
+<div data-component="../components/confirm-modal.html"></div>
+
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 h-full overflow-y-auto bg-background">
+<div class="max-w-6xl w-full mx-auto px-8 py-10 space-y-12">
+
+<!-- BEGIN: Header Section -->
+<header class="space-y-5">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
+        <div>
+            <h1 class="text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">Security Report</h1>
+            <p class="text-slate-500 text-sm mt-1 max-w-xl">
+                Container vulnerability scan and repository secret analysis for
+                <code id="project-slug" class="font-mono text-xs bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded">loading...</code>.
+            </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+            <div id="scan-status-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-500 border border-slate-200">loading...</div>
+            <button id="rescan-btn" type="button"
+                class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95 whitespace-nowrap">
+                <span class="material-symbols-outlined text-[16px] text-slate-500">replay</span> Re-scan
+            </button>
+        </div>
+    </div>
+    <!-- Metadata Bar -->
+    <div class="flex items-center gap-2 text-xs text-slate-500 border-t border-slate-100 pt-3">
+        <span class="material-symbols-outlined text-[14px] text-slate-400">schedule</span>
+        <span>Last scan completed <strong class="font-medium text-slate-700">2 minutes ago</strong></span>
+        <span class="text-slate-300">•</span>
+        <span>Engines: <span class="font-mono text-slate-600">Trivy + Gitleaks</span></span>
+    </div>
+</header>
+<!-- END: Header Section -->
+
+<!-- Stack: one tab per component (hidden for a single project) -->
+<div id="component-tabs" class="hidden flex flex-wrap gap-2"></div>
+
+<!-- BEGIN: Trivy overview (vulnerability counts) -->
+<section class="border-y border-slate-200/80 py-8">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <!-- Key metric & subtext -->
+        <div class="space-y-1">
+            <div class="flex items-baseline gap-3">
+                <span id="verdict-system" class="text-5xl font-extrabold tracking-tight text-slate-900 font-mono">–</span>
+                <span class="text-sm font-semibold uppercase tracking-wider text-orange-600">Fixable by updating the image</span>
+            </div>
+            <p class="text-sm text-slate-500 max-w-md">
+                System packages from the base image.
+                <span class="font-medium text-slate-700"><span id="verdict-app">–</span> fixable in your code</span> and
+                <span class="font-medium text-slate-700"><span id="verdict-nofix">–</span> with no fix available yet</span>.
+            </p>
+        </div>
+
+        <!-- Severity breakdown -->
+        <div class="flex items-center gap-3 sm:gap-6 bg-white p-3 sm:p-4 rounded-xl border border-slate-200/70 shadow-sm">
+            <div class="px-3 py-1.5 text-center">
+                <span id="count-critical" class="block text-2xl font-bold font-mono text-red-600">–</span>
+                <span class="text-[11px] font-semibold tracking-wider uppercase text-red-500">Critical</span>
+            </div>
+            <div class="h-8 w-px bg-slate-100"></div>
+            <div class="px-3 py-1.5 text-center">
+                <span id="count-high" class="block text-2xl font-bold font-mono text-[#ff5c00]">–</span>
+                <span class="text-[11px] font-semibold tracking-wider uppercase text-[#ff5c00]">High</span>
+            </div>
+            <div class="h-8 w-px bg-slate-100"></div>
+            <div class="px-3 py-1.5 text-center">
+                <span id="count-medium" class="block text-2xl font-bold font-mono text-amber-500">–</span>
+                <span class="text-[11px] font-semibold tracking-wider uppercase text-amber-600">Medium</span>
+            </div>
+            <div class="h-8 w-px bg-slate-100"></div>
+            <div class="px-3 py-1.5 text-center">
+                <span id="count-low" class="block text-2xl font-bold font-mono text-slate-600">–</span>
+                <span class="text-[11px] font-semibold tracking-wider uppercase text-slate-500">Low</span>
+            </div>
+        </div>
+
+        <!-- Primary fix action -->
+        <div class="shrink-0">
+            <button id="autofix-btn" type="button"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-[#ff5c00] hover:bg-[#ea580c] text-white font-medium text-sm transition-all shadow-md shadow-orange-500/20 active:scale-95 whitespace-nowrap">
+                <span class="material-symbols-outlined text-[18px]">auto_fix_high</span> Fix automatically
+            </button>
+        </div>
+    </div>
+</section>
+<!-- END: Trivy overview -->
+
+<!-- BEGIN: Vulnerability lists (rendered by security-details.js) -->
+<section>
+    <div id="vuln-details"></div>
+</section>
+<!-- END: Vulnerability lists -->
+
+<!-- Gitleaks: secrets -->
+<section class="space-y-4 pt-4 border-t border-slate-100">
+    <div>
+        <h2 class="text-xl font-bold tracking-tight text-slate-900">Secrets (Gitleaks)</h2>
+        <p class="text-xs text-slate-500 mt-0.5">
+            Automated scan of Git commit history and repository files for accidental API keys, tokens, or credential leaks.
+        </p>
+    </div>
+    <div id="gitleaks-section" class="text-sm text-slate-400">
+        loading...
+    </div>
+</section>
+
+</div>
+</main>
+<script src="../scripts/components.js"></script>
+<script src="../scripts/toast.js"></script>
+<script src="../scripts/confirm-modal.js"></script>
+<script src="../scripts/api/auth.js"></script>
+<script src="../scripts/api/security.js"></script>
+<script src="../scripts/security-details.js"></script>
+</body></html>

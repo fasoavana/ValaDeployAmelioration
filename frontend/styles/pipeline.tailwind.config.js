@@ -1,0 +1,102 @@
+// pipeline.tailwind.config.js
+// Configuration Tailwind extraite du design de la page Pipeline.
+
+tailwind.config = {
+    darkMode: "class",
+    theme: {
+        extend: {
+            colors: {
+                "on-tertiary": "#ffffff",
+                "on-secondary-fixed": "#1b1b1b",
+                "primary-fixed-dim": "#ffb59a",
+                "outline": "#8f7065",
+                "tertiary-fixed-dim": "#a0c9ff",
+                "surface-dim": "#d0daf2",
+                "on-secondary-container": "#646464",
+                "inverse-primary": "#ffb59a",
+                "on-surface-variant": "#5b4137",
+                "on-background": "#111c2d",
+                "on-secondary": "#ffffff",
+                "secondary": "#5e5e5e",
+                "on-primary-fixed-variant": "#802a00",
+                "surface-container": "#e8eeff",
+                "on-secondary-fixed-variant": "#474747",
+                "secondary-fixed-dim": "#c6c6c6",
+                "surface-bright": "#f9f9ff",
+                "surface-container-high": "#dfe8ff",
+                "surface-container-highest": "#d9e3fb",
+                "on-tertiary-fixed-variant": "#00497f",
+                "tertiary": "#0061a6",
+                "on-tertiary-fixed": "#001c37",
+                "on-error-container": "#93000a",
+                "outline-variant": "#e4beb1",
+                "background": "#f9f9ff",
+                "primary": "#a73a00",
+                "surface-variant": "#d9e3fb",
+                "primary-container": "#ff5c00",
+                "surface-container-low": "#f0f3ff",
+                "surface": "#f9f9ff",
+                "surface-container-lowest": "#ffffff",
+                "on-tertiary-container": "#002d51",
+                "on-primary": "#ffffff",
+                "inverse-on-surface": "#ecf0ff",
+                "primary-fixed": "#ffdbce",
+                "surface-tint": "#a73a00",
+                "on-primary-fixed": "#370e00",
+                "tertiary-container": "#0096fd",
+                "tertiary-fixed": "#d2e4ff",
+                "on-error": "#ffffff",
+                "inverse-surface": "#273143",
+                "error-container": "#ffdad6",
+                "on-primary-container": "#521800",
+                "error": "#ba1a1a",
+                "on-surface": "#111c2d",
+                "secondary-container": "#e2e2e2",
+                "secondary-fixed": "#e2e2e2"
+            },
+            borderRadius: {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            spacing: {
+                "lg": "24px",
+                "xs": "4px",
+                "margin-desktop": "32px",
+                "unit": "4px",
+                "max-width": "1280px",
+                "gutter": "24px",
+                "xl": "40px",
+                "md": "16px",
+                "xxl": "80px",
+                "margin-mobile": "16px",
+                "sm": "8px"
+            },
+            fontFamily: {
+                "label-md": ["Inter"],
+                "mono-code": ["JetBrains Mono"],
+                "display": ["Inter"],
+                "label-sm": ["Inter"],
+                "headline-lg": ["Inter"],
+                "body-lg": ["Inter"],
+                "headline-md": ["Inter"],
+                "body-sm": ["Inter"],
+                "headline-lg-mobile": ["Inter"],
+                "body-md": ["Inter"]
+            },
+            fontSize: {
+                "label-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                "mono-code": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                "display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+            }
+        }
+    }
+};

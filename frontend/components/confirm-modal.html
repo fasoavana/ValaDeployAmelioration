@@ -1,0 +1,35 @@
+<!-- components/confirm-modal.html
+     Composant de confirmation réutilisable.
+     Se pilote uniquement via JS : ValaModal.confirm({ ... })
+     Le style est 100% autonome (injecté par scripts/confirm-modal.js),
+     indépendant de la config Tailwind de la page hôte.
+     Voir scripts/confirm-modal.js pour l'API. -->
+<div id="vala-modal-overlay" class="vala-modal-overlay" aria-hidden="true">
+  <div id="vala-modal-card" class="vala-modal-card" role="dialog" aria-modal="true" aria-labelledby="vala-modal-title">
+
+    <!-- Icône -->
+    <div id="vala-modal-icon-wrap" class="vala-modal-icon-wrap">
+      <span id="vala-modal-icon" class="material-symbols-outlined vala-modal-icon">warning</span>
+    </div>
+
+    <!-- Titre -->
+    <h3 id="vala-modal-title" class="vala-modal-title">
+      Confirmer l'action
+    </h3>
+
+    <!-- Message -->
+    <p id="vala-modal-message" class="vala-modal-message">
+      Êtes-vous sûr de vouloir continuer ?
+    </p>
+
+    <!-- Actions -->
+    <div class="vala-modal-actions">
+      <button id="vala-modal-cancel" type="button" class="vala-modal-btn vala-modal-btn-cancel">
+        Annuler
+      </button>
+      <button id="vala-modal-confirm" type="button" class="vala-modal-btn vala-modal-btn-confirm">
+        Confirmer
+      </button>
+    </div>
+  </div>
+</div>

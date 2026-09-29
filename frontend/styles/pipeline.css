@@ -1,0 +1,168 @@
+/* pipeline.css — styles spécifiques à la page Pipeline (stepper + terminal). */
+
+/* ---------- Animations ---------- */
+
+.animate-pulse-slow {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-ring {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .5; transform: scale(1.1); }
+}
+
+/* ---------- Terminal ---------- */
+
+.terminal-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.terminal-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.terminal-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+#pipeline-terminal.is-fullscreen {
+    position: fixed;
+    inset: 24px;
+    z-index: 50;
+    height: auto !important;
+    width: auto !important;
+    border-radius: 8px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Stepper ---------- */
+
+.pipeline-step {
+    position: relative;
+    display: flex;
+    gap: 16px;
+    z-index: 1;
+    margin-bottom: 40px;
+}
+
+.pipeline-step:last-child {
+    margin-bottom: 0;
+}
+
+/* Ligne verticale par défaut (pending) */
+.pipeline-step::before {
+    content: "";
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: -40px;
+    width: 2px;
+    background: #e4beb1; /* outline-variant */
+    z-index: -1;
+}
+
+.pipeline-step:last-child::before {
+    display: none;
+}
+
+/* Coloration dynamique de la ligne verticale selon le statut */
+.pipeline-step[data-status="completed"]::before {
+    background: #12b76a;
+}
+
+.pipeline-step[data-status="active"]::before {
+    background: #ff5c00; /* primary-container */
+}
+
+.pipeline-step[data-status="failed"]::before {
+    background: #ba1a1a;
+}
+
+.pipeline-step[data-status="cancelled"]::before {
+    background: #5e5e5e;
+}
+
+.pipeline-step[data-status="pending"] {
+    opacity: 0.6;
+}
+
+.step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 4px;
+    position: relative;
+    background-color: #f9f9ff;
+}
+
+/* État : Completed */
+.pipeline-step[data-status="completed"] .step-icon {
+    border: 2px solid #12b76a;
+    color: #12b76a;
+}
+
+/* État : Active */
+.pipeline-step[data-status="active"] .step-icon {
+    border: 2px solid #ff5c00;
+    color: #ff5c00;
+}
+
+.pipeline-step[data-status="active"] .step-icon .step-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background-color: #ff5c00;
+    animation: pulse-ring 1.5s infinite;
+}
+
+.pipeline-step[data-status="active"] .step-icon-glow {
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    border: 2px solid #ff5c00;
+    opacity: 0.3;
+    animation: pulse-ring 1.5s infinite;
+}
+
+/* État : Pending */
+.pipeline-step[data-status="pending"] .step-icon {
+    border: 1px solid #e4beb1;
+    color: #5e5e5e;
+}
+
+/* État : Failed */
+.pipeline-step[data-status="failed"] .step-icon {
+    border: 2px solid #ba1a1a;
+    color: #ba1a1a;
+}
+
+/* État : Cancelled */
+.pipeline-step[data-status="cancelled"] .step-icon {
+    border: 1px solid #e4beb1;
+    color: #5e5e5e;
+}
+
+/* Titres des étapes */
+.pipeline-step-title[data-status="active"] {
+    color: #ff5c00;
+    font-weight: 700;
+}
+
+.pipeline-step-title[data-status="failed"] {
+    color: #ba1a1a;
+    font-weight: 700;
+}
+
+.pipeline-step-title[data-status="completed"] {
+    color: #12b76a;
+    font-weight: 600;
+}

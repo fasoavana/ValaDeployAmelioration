@@ -1,0 +1,31 @@
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+}
+
+.severity-stat-critical { color: #ba1a1a; }
+.severity-stat-high { color: #ff5c00; }
+.severity-stat-medium { color: #a73a00; }
+.severity-stat-low { color: #5e5e5e; }
+
+/* Scan result badges — pastille douce, cohérente avec .status-badge du dashboard */
+.scan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-family: Inter, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+}
+
+.scan-badge-passed {
+    background-color: rgba(18, 183, 106, 0.1);
+    color: #12B76A;
+}
+
+.scan-badge-blocked {
+    background-color: rgba(186, 26, 26, 0.08);
+    color: #ba1a1a;
+}

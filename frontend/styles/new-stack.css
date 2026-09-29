@@ -1,0 +1,77 @@
+/* Custom styles to enforce the "épuré" aesthetic */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f9f9ff; /* surface */
+    color: #111c2d; /* on-surface */
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #e2e2e2;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #c6c6c6;
+}
+
+/* Input overrides */
+input:focus, select:focus, textarea:focus {
+    box-shadow: none !important;
+    border-color: #111c2d !important;
+}
+
+/* The connecting vertical line for the stack */
+.stack-connector::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 24px;
+    bottom: -24px;
+    width: 2px;
+    background-color: #e4beb1; /* outline-variant */
+    z-index: 0;
+}
+
+/* Hide connector on last item */
+.stack-item:last-child .stack-connector::before {
+    display: none;
+}
+
+/* ... (styles existants inchangés) ... */
+
+/* Sélecteur de composant - Animation d'apparition */
+.component-picker {
+    animation: slideUpFadeIn 0.2s ease-out;
+    transform-origin: bottom center;
+}
+
+@keyframes slideUpFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Option du sélecteur - État actif au clic */
+.component-picker-option:active {
+    transform: scale(0.97);
+}
+
+/* Overlay pour fermer en cliquant en dehors (optionnel mais recommandé) */
+.component-picker-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: transparent;
+}

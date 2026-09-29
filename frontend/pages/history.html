@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html class="light" lang="fr">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>ValaDeploy - Historique des déploiements</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"/>
+
+    <!-- Config Tailwind -->
+    <script id="tailwind-config" src="../styles/account.tailwind.config.js"></script>
+    <link href="../styles/account.css" rel="stylesheet"/>
+    <link href="../styles/toast.css" rel="stylesheet"/> 
+</head>
+<body class="antialiased text-on-surface" data-page="history">
+
+    <div data-component="../components/toast-container.html"></div>
+
+    <div class="page-wrapper flex w-full">
+        <!-- Sidebar -->
+        <div data-component="../components/sidebar.html"></div>
+
+        <!-- Main Content -->
+        <main class="ml-64 flex-1 flex flex-col w-full max-w-max-width mx-auto px-margin-desktop py-xl">
+            <header class="mb-xl flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-sm mb-unit">
+                        <a href="stacks.html" class="text-subtle hover:text-primary-dark transition-colors">
+                            <span class="material-symbols-outlined">arrow_back</span>
+                        </a>
+                        <h2 class="font-headline-lg text-headline-lg text-primary-dark">Historique des déploiements</h2>
+                    </div>
+                    <p class="font-body-md text-body-md text-subtle">
+                        Suivi des exécutions de pipelines pour le projet <span id="page-project-name" class="font-mono-code text-primary-dark font-semibold">...</span>
+                    </p>
+                </div>
+                <a href="stacks.html" class="inline-flex items-center gap-xs px-lg py-sm bg-surface-container-highest border border-subtle text-primary-dark rounded-DEFAULT font-label-md hover:bg-surface-variant transition-colors">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">dashboard</span>
+                    Tableau de bord
+                </a>
+            </header>
+
+            <div class="bg-surface-container-lowest border border-subtle rounded-lg overflow-hidden">
+                <!-- État de chargement -->
+                <div id="history-loading" class="flex flex-col items-center justify-center py-20">
+                    <span class="material-symbols-outlined text-4xl text-primary-orange animate-spin mb-md">progress_activity</span>
+                    <span class="font-body-md text-body-md text-subtle">Chargement de l'historique...</span>
+                </div>
+
+                <!-- État vide -->
+                <div id="history-empty" class="hidden flex-col items-center justify-center py-20">
+                    <span class="material-symbols-outlined text-5xl text-subtle mb-md">history_toggle_off</span>
+                    <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Aucun déploiement</h3>
+                    <p class="font-body-md text-body-md text-subtle max-w-md text-center">
+                        Ce projet n'a pas encore d'historique de déploiement. Lancez un premier build pour voir les résultats ici.
+                    </p>
+                </div>
+
+                <!-- Tableau des données -->
+                <div id="history-table" class="hidden w-full overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-surface-container-highest border-b border-subtle">
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider">Run ID</th>
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider">Date</th>
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider">Déclencheur</th>
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider">Statut</th>
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider">Commit</th>
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider">Durée</th>
+                                <th class="px-lg py-md font-label-sm text-label-sm text-subtle uppercase tracking-wider text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-subtle">
+                            <!-- Les lignes seront injectées ici par JS -->
+                        </tbody>
+                    </table>
+                </projet>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../scripts/config.js"></script>
+    <script src="../scripts/components.js"></script>
+    <script src="../scripts/toast.js"></script>
+    <script src="../scripts/api/auth.js"></script>
+    <script src="../scripts/api/deployment.js"></script> 
+    <script src="../scripts/history.js"></script> 
+</body>
+</html>
