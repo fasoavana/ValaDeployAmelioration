@@ -19,7 +19,7 @@ from app.core.exceptions import BuildError, DeployError, DetectionError, SecretL
 from app.models.project import Project, FailReason, ComponentKind, ProjectStatus, ProjectComponent
 from app.services.container_service import ensure_project_network, run_container
 from app.services.build_preparation import prepare_build_environment
-from app.services.security_profile import get_security_profile
+from app.services.security_profile import get_security_profile, get_runtime_port
 
 # AJOUTS POUR L'HISTORIQUE
 from app.models.deployment import DeploymentRun, PipelineStatus, DeploymentTrigger
@@ -221,7 +221,7 @@ class DeployService:
                     build_result,
                     payload.slug, settings.APP_NETWORK,
                     payload.replica, payload.envs_var,
-                    port=payload.port,
+                    port=get_runtime_port(detect_result, payload.port),
                     security_profile=get_security_profile(detect_result),
                 )
                 log("      Conteneurs démarrés et connectés au réseau.")

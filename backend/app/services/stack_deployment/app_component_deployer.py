@@ -7,7 +7,7 @@ from app.models.project import FailReason
 from app.services.build_preparation import prepare_build_environment
 from app.services.build_service import build_docker_image, detect_project_type, generate_dockerfile
 from app.services.container_service import scale_project
-from app.services.security_profile import get_security_profile
+from app.services.security_profile import get_security_profile, get_runtime_port
 from app.services.deployment_run_tracker import update_pipeline_run
 from app.services.git_service import clone_repository
 from app.services.project_service import ProjectService
@@ -229,7 +229,10 @@ class AppComponentDeployer(ComponentDeployer):
                 desired_replicas=comp_payload.get("replica", 1),
                 envs_var=comp_payload.get("envs_var"),
                 extra_networks=extra_nets,
-                port=comp_payload["port"],
+                port=get_runtime_port(
+                    ctx.detect_result,
+                    comp_payload["port"],
+                ),
                 plain_envs_var=plain_envs,
                 expose_traefik=comp_payload.get("expose_publicly", False),
                 security_profile=get_security_profile(ctx.detect_result),

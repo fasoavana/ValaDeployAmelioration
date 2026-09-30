@@ -32,13 +32,17 @@ RUN apk add --no-cache \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo pdo_pgsql gd mbstring exif pcntl bcmath opcache
 
+# Phase D : utilisateur applicatif non privilégié
+RUN addgroup -S -g 10001 valadeploy \
+    && adduser -S -D -H -u 10001 -G valadeploy valadeploy
+
 COPY --from=composer_builder /app/vendor /var/www/html/vendor
 
 COPY . .
 
 COPY --from=frontend_builder /app/public/build /var/www/html/public/build
 
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+RUN chown -R valadeploy:valadeploy /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 RUN printf 'server {\n    listen 8000;\n    root /var/www/html/public;\n    index index.php;\n    location / {\n        try_files $uri $uri/ /index.php?$query_string;\n    }\n    location ~ \\.php$ {\n        fastcgi_pass 127.0.0.1:9000;\n        fastcgi_index index.php;\n        include fastcgi_params;\n        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n    }\n}\n' > /etc/nginx/http.d/default.conf
@@ -47,5 +51,7 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
+
+USER valadeploy
 
 ENTRYPOINT ["docker-entrypoint.sh"]

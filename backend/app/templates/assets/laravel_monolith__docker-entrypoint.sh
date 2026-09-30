@@ -19,11 +19,6 @@ mkdir -p \
     /var/www/html/storage/logs \
     /var/www/html/bootstrap/cache
 
-chown -R nginx:nginx \
-    /run/nginx \
-    /var/lib/nginx \
-    /var/log/nginx
-
 ln -sf /dev/stdout /var/log/nginx/access.log
 ln -sf /dev/stderr /var/log/nginx/error.log
 
@@ -31,13 +26,6 @@ chmod -R 775 \
     /var/www/html/storage/framework \
     /var/www/html/storage/logs \
     /var/www/html/bootstrap/cache
-
-chown -R www-data:www-data \
-    /var/www/html/storage/framework \
-    /var/www/html/storage/logs \
-    /var/www/html/bootstrap/cache
-
-chmod 1777 /tmp
 
 echo " Démarrage de l'application Laravel..."
 

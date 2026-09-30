@@ -75,8 +75,10 @@ REACT_VITE_PROFILE = replace(
     name="react-vite",
     read_only=True,
     tmpfs={
-        "/var/cache/nginx": "rw,nosuid,nodev,noexec,size=64m",
-        "/run": "rw,nosuid,nodev,noexec,size=16m",
+        "/var/cache/nginx":
+            "rw,nosuid,nodev,noexec,size=64m,uid=101,gid=101,mode=0755",
+        "/run":
+            "rw,nosuid,nodev,noexec,size=16m,uid=101,gid=101,mode=0755",
         "/tmp": "rw,nosuid,nodev,size=64m,mode=1777",
     },
 )
@@ -88,20 +90,24 @@ LARAVEL_MONOLITH_PROFILE = replace(
     name="laravel-monolith",
     read_only=True,
     tmpfs={
-        "/run": "rw,nosuid,nodev,noexec,size=16m",
-        "/tmp": "rw,nosuid,nodev,size=64m,mode=1777",
+        "/run":
+            "rw,nosuid,nodev,noexec,size=16m,uid=10001,gid=10001,mode=0755",
+        "/tmp":
+            "rw,nosuid,nodev,size=64m,mode=1777",
 
-        # Nginx Alpine
-        "/var/lib/nginx": "rw,nosuid,nodev,noexec,size=64m",
-        "/var/log/nginx": "rw,nosuid,nodev,noexec,size=16m",
+        # Nginx exécuté avec l'utilisateur valadeploy
+        "/var/lib/nginx":
+            "rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0755",
+        "/var/log/nginx":
+            "rw,nosuid,nodev,noexec,size=16m,uid=10001,gid=10001,mode=0755",
 
         # Laravel
         "/var/www/html/storage/framework":
-            "rw,nosuid,nodev,noexec,size=128m",
+            "rw,nosuid,nodev,noexec,size=128m,uid=10001,gid=10001,mode=0775",
         "/var/www/html/storage/logs":
-            "rw,nosuid,nodev,noexec,size=64m",
+            "rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0775",
         "/var/www/html/bootstrap/cache":
-            "rw,nosuid,nodev,noexec,size=32m",
+            "rw,nosuid,nodev,noexec,size=32m,uid=10001,gid=10001,mode=0775",
     },
 )
 
@@ -123,3 +129,12 @@ def get_security_profile(project_type):
         return LARAVEL_MONOLITH_PROFILE
 
     return STANDARD_PROFILE
+
+def get_runtime_port(project_type, configured_port: int) -> int:
+    """Retourne le port interne réellement utilisé par le runtime généré."""
+    type_name = getattr(project_type, "name", str(project_type)).upper()
+
+    if type_name == "REACT_VITE":
+        return 8080
+
+    return configured_port
