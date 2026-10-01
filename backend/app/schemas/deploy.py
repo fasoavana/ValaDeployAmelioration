@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 
 class CloneSchema(BaseModel):
     """ 
@@ -13,7 +13,7 @@ Attributes:
     repo_url: str
     branch: str = 'main'
     slug: str
-    replica : int = 1
+    replica : int = Field(default=1, ge=1)
     envs_var: dict[str, str] | None = None 
     port: int
 

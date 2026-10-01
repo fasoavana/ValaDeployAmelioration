@@ -6,6 +6,8 @@ Gère la compilation des images à partir des Dockerfiles.
 import logging
 import os
 import json
+import uuid
+from app.core.image_reference import validate_image_reference
 import docker
 from app.core.docker_client import client
 from typing import Optional, Dict
@@ -15,7 +17,8 @@ logger = logging.getLogger(__name__)
 def build_docker_image(project_path: str,
                        slug: str, 
                        commit_hash: str,
-                       build_args: Optional[Dict[str, str]] = None) -> str:
+                       build_args: Optional[Dict[str, str]] = None,
+                       project_type=None) -> str:
     """
     Build une image Docker pour le projet.
     
@@ -33,17 +36,19 @@ def build_docker_image(project_path: str,
         FileNotFoundError: Si le chemin du projet n'existe pas
     """
     short_commit_hash = commit_hash[:7]
-    image_tag = f"{slug}:{short_commit_hash}"
+    image_tag = f"{slug}:{short_commit_hash}-{uuid.uuid4().hex[:12]}"
+    validate_image_reference(image_tag)
 
     try:
         logger.info(f"Démarrage du build Docker pour {image_tag}...")
         if build_args:
-            logger.info(f"Arguments de build injectés : {build_args}")
+            logger.info("Arguments de build injectés : %s", sorted(build_args))
         
         # Préparation des arguments pour le client Docker
         build_kwargs = {
             'path': project_path,
             'tag': image_tag,
+            'labels': {'io.valadeploy.runtime-type': getattr(project_type, 'value', project_type) or 'unknown'},
             'rm': True,  # Nettoie les conteneurs intermédiaires
             # 'decode': True a été supprimé car il cause un bug de stream 
             # avec certaines versions du SDK Docker Python
@@ -53,7 +58,7 @@ def build_docker_image(project_path: str,
         if build_args:
             build_kwargs['buildargs'] = build_args
         
-        logger.info(f"Tentative de build avec les kwargs suivants : {build_kwargs}")
+        logger.info("Contexte du build : %s", project_path)
 
         # Vérification de sécurité avant l'appel
         if not os.path.isdir(project_path):

@@ -4,3 +4,7 @@ backend/venv/
 backend/.venv/
 backend/ENV/
 __pycache__/
+
+# Diagnostics et sessions locales (peuvent contenir des secrets)
+backend/app/logs/
+backend/cookies.txt

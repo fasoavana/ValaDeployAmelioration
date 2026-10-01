@@ -6,6 +6,14 @@ from app.core.security import decrypt_data
 from app.models.project import ProjectStatus 
 from app.services.security_profile import SecurityProfile, STANDARD_PROFILE
 import logging
+import time
+import re
+import json
+from pathlib import Path
+from app.core.exceptions import DeployError
+from app.core.image_reference import validate_image_reference
+from app.core.config import settings
+from app.services.security_profile import get_security_profile, get_runtime_port
 
 logger = logging.getLogger(__name__)
 
@@ -26,70 +34,139 @@ def build_container_name(component_slug: str, replica_index: int = 1) -> str:
     return f"{component_slug}-{replica_index}"
 
 
-def run_container(image_name: str, slug: str, network: str, envs_var: dict = None,
-                   extra_networks: list = None, volumes: dict = None,
-                   expose_traefik: bool = True, plain_envs_var: dict = None, port: int = None,
-                   security_profile: SecurityProfile | None = None) -> str:
-    """
-    ...
-    plain_envs_var (dict, optional): variables déjà en clair (non chiffrées), fusionnées
-                                      telles quelles avec les variables déchiffrées.
-                                      None par défaut = comportement inchangé.
-    """
-    try:
-        existing_container = client.containers.get(slug)
-        if existing_container:
-            if existing_container.status == 'running':
-                existing_container.stop()
-            existing_container.remove()
-    except docker.errors.NotFound:
-        pass
-    except docker.errors.APIError as e:
-        raise ValueError(f"Error occurred while running container: {e}")
+class ContainerDeploymentError(DeployError):
+    """Garde les IDs même si Docker échoue après la création."""
+    def __init__(self, message, container_ids):
+        super().__init__(message)
+        self.container_ids = list(container_ids)
 
+
+def verify_containers_running(container_ids, delay=3.0):
+    """Fenêtre de stabilité courte, sans prétendre vérifier la disponibilité HTTP."""
+    if not container_ids:
+        raise ContainerDeploymentError("Aucun conteneur créé.", [])
+    deadline = time.monotonic() + delay
+    while True:
+        for container_id in container_ids:
+            try:
+                container = client.containers.get(container_id)
+                state = container.attrs.get("State", {})
+            except docker.errors.NotFound:
+                raise ContainerDeploymentError(
+                    f"Conteneur {container_id} introuvable après création.", container_ids
+                ) from None
+            if container.status != "running":
+                raise ContainerDeploymentError(
+                    f"Conteneur {container.name} ({container_id[:12]}) arrêté : "
+                    f"statut={container.status}, ExitCode={state.get('ExitCode', 'inconnu')}, "
+                    f"OOMKilled={state.get('OOMKilled', False)}. "
+                    "Conteneur conservé ; consulter ses logs Docker.", container_ids
+                )
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(0.5, remaining))
+
+
+def run_container(image_name: str, slug: str, network: str, envs_var: dict = None,
+                  extra_networks: list = None, volumes: dict = None,
+                  expose_traefik: bool = True, plain_envs_var: dict = None, port: int = None,
+                  security_profile: SecurityProfile | None = STANDARD_PROFILE,
+                  labels: dict = None, command=None, entrypoint=None, user=None,
+                  working_dir=None, preserve_volumes=False) -> str:
+    # Valider AVANT tout appel Docker ou remplacement du conteneur existant.
+    validate_image_reference(image_name)
     if expose_traefik and port is None:
         raise ValueError(f"port est requis quand expose_traefik=True (conteneur: {slug})")
 
-    traefik_labels = build_traefik_labels(slug, internal_port=port) if expose_traefik else {}
+    container_labels = dict(labels or {})
+    if expose_traefik:
+        container_labels.update(build_traefik_labels(slug, internal_port=port))
+    var_envs = {key: decrypt_data(value) for key, value in (envs_var or {}).items()}
+    var_envs.update(plain_envs_var or {})
+    security_kwargs = security_profile.docker_kwargs() if security_profile is not None else {}
+    runtime_kwargs = {key: value for key, value in {
+        "command": command, "entrypoint": entrypoint, "user": user,
+        "working_dir": working_dir,
+    }.items() if value is not None}
+    try:
+        existing = client.containers.get(slug)
+        if preserve_volumes and volumes is None:
+            volumes = {
+                mount["Name"]: {"bind": mount["Destination"], "mode": "rw" if mount.get("RW") else "ro"}
+                for mount in existing.attrs.get("Mounts", []) if mount["Type"] == "volume"
+            }
+        archive_container_evidence(existing)
+        existing.remove(force=True)
+    except docker.errors.NotFound:
+        pass
 
-    # Decrypt environment variables if provided
-    var_envs = {}
-    if envs_var:
-        for key, value in envs_var.items():
-            decrypted_value = decrypt_data(value)
-            var_envs[key] = decrypted_value
+    container = None
+    try:
+        # Séparer create/start permet de conserver l'ID si start() échoue.
+        create_kwargs = dict(
+            image=image_name, name=slug, network=network, environment=var_envs,
+            labels=container_labels, volumes=volumes, detach=True,
+            **security_kwargs, **runtime_kwargs,
+        )
+        try:
+            container = client.containers.create(**create_kwargs)
+        except docker.errors.ImageNotFound:
+            # Comme containers.run(), télécharger une image externe absente.
+            client.images.pull(image_name)
+            container = client.containers.create(**create_kwargs)
+        for net_name in extra_networks or []:
+            if net_name != network:
+                client.networks.get(net_name).connect(container)
+        container.start()
+        verify_containers_running([container.id])
+        return container.id
+    except ContainerDeploymentError:
+        raise
+    except Exception as exc:
+        ids = [container.id] if container is not None else []
+        raise ContainerDeploymentError(
+            f"Échec de création/démarrage de {slug} : {exc}. "
+            f"Ressources conservées : {', '.join(ids) or 'aucun conteneur créé'}", ids
+        ) from exc
 
-    # Variables déjà en clair (ex: credentials générés automatiquement par ValaDeploy),
-    # jamais passées par le chiffrement/déchiffrement.
-    if plain_envs_var:
-        var_envs.update(plain_envs_var)
 
-    security_kwargs = (
-        security_profile.docker_kwargs()
-        if security_profile is not None
-        else {}
+def recreate_container(container_id, project_slug, configured_port, is_database=False):
+    """Répare un réseau absent sans deviner un runtime ou perdre les volumes."""
+    old = client.containers.get(container_id)
+    config = old.attrs["Config"]
+    labels = dict(config.get("Labels") or {})
+    runtime_type = (old.image.attrs.get("Config", {}).get("Labels") or {}).get("io.valadeploy.runtime-type")
+    if not is_database and (not runtime_type or runtime_type == "unknown"):
+        raise ValueError("Ancienne image sans métadonnées runtime : utilisez Retry pour reconstruire avec le template actuel.")
+    port = None if is_database else get_runtime_port(runtime_type, configured_port)
+    expose = not is_database and labels.get("traefik.enable") == "true"
+    networks = list(old.attrs.get("NetworkSettings", {}).get("Networks", {}))
+    project_network = f"net-{project_slug}"
+    if project_network in networks:
+        network = ensure_project_network(project_slug)
+    elif settings.APP_NETWORK in networks:
+        network = settings.APP_NETWORK
+    else:
+        raise ValueError("Réseau principal indéterminé ; utilisez Retry.")
+    # Les réseaux tiers manquants ne sont pas recréés arbitrairement.
+    extra = [name for name in networks if name != network]
+    for name in [network, *extra]:
+        client.networks.get(name)
+    volumes = {}
+    for mount in old.attrs.get("Mounts", []):
+        if mount["Type"] in ("volume", "bind"):
+            source = mount.get("Name") if mount["Type"] == "volume" else mount["Source"]
+            volumes[source] = {"bind": mount["Destination"], "mode": "rw" if mount.get("RW") else "ro"}
+    envs = dict(item.split("=", 1) for item in config.get("Env", []) if "=" in item)
+    return run_container(
+        image_name=old.image.id, slug=old.name, network=network,
+        extra_networks=extra, volumes=volumes, plain_envs_var=envs,
+        expose_traefik=expose, port=port, labels=labels,
+        security_profile=None if is_database else get_security_profile(runtime_type),
+        command=config.get("Cmd"), entrypoint=config.get("Entrypoint"),
+        user=config.get("User"), working_dir=config.get("WorkingDir"),
     )
-
-    container = client.containers.run(
-        image=image_name,
-        name=slug,
-        network=network,
-        environment=var_envs,
-        labels=traefik_labels,
-        volumes=volumes,
-        detach=True,
-        **security_kwargs,
-    )
-
-    if extra_networks:
-        for net_name in extra_networks:
-            try:
-                docker_network = client.networks.get(net_name)
-                docker_network.connect(container)
-            except docker.errors.NotFound:
-                raise ValueError(f"Réseau introuvable pour la connexion additionnelle: {net_name}")
-
-    return container.id
 
 
 def scale_project(image_name: str, slug: str, network: str, desired_replicas: int,
@@ -114,11 +191,16 @@ def scale_project(image_name: str, slug: str, network: str, desired_replicas: in
     Returns:
         list: A list of IDs of the running containers after scaling.
     """
+    validate_image_reference(image_name)
+    if desired_replicas < 1:
+        raise ValueError("Au moins un réplica est requis.")
     # Get all containers with names starting with the slug
     existing_containers = client.containers.list(all=True, filters={"name": f"{slug}-"})
     # Extract the replica numbers from existing container names
     existing_numbers = []
     for container in existing_containers:
+        if not re.fullmatch(re.escape(slug) + r"-[1-9][0-9]*", container.name):
+            continue
         try:
             number = int(container.name.rsplit('-', 1)[-1])
             existing_numbers.append((number, container))
@@ -141,17 +223,20 @@ def scale_project(image_name: str, slug: str, network: str, desired_replicas: in
     running_container_ids = []
     for i in range(1, desired_replicas + 1):
         container_name = build_container_name(slug, i)
-        new_container_id = run_container(
-            image_name,
-            container_name,
-            network, envs_var,
-            extra_networks,
-            plain_envs_var=plain_envs_var,
-            port=port,
-            expose_traefik=expose_traefik,
-            security_profile=security_profile,
-        )
-        running_container_ids.append(new_container_id)
+        try:
+            new_container_id = run_container(
+                image_name, container_name, network, envs_var, extra_networks,
+                plain_envs_var=plain_envs_var, port=port,
+                expose_traefik=expose_traefik, security_profile=security_profile,
+            )
+            running_container_ids.append(new_container_id)
+        except Exception as exc:
+            ids = running_container_ids + getattr(exc, "container_ids", [])
+            raise ContainerDeploymentError(str(exc), ids) from exc
+    try:
+        verify_containers_running(running_container_ids, delay=0)
+    except Exception as exc:
+        raise ContainerDeploymentError(str(exc), running_container_ids) from exc
     return running_container_ids
 
 
@@ -203,37 +288,57 @@ def manage_container_state(container_id: str, action: str, project_slug: str) ->
     else:
         raise ValueError(f"Action '{action}' non supportée.")
 
+    if action in ['start', 'restart']:
+        verify_containers_running([container.id])
     return container.id
 
 def get_real_containers_status(container_ids: list) -> ProjectStatus:
-    """
-    Vérifie l'état réel d'une liste d'IDs de conteneurs via le Docker SDK.
-    
-    Règle métier : Si AU MOINS UN conteneur de la liste est en état "running", 
-    le statut global est considéré comme RUNNING. Sinon, c'est STOPPED.
-    
-    Args:
-        container_ids (list): Liste des IDs de conteneurs à vérifier (peut être None ou vide).
-        
-    Returns:
-        ProjectStatus: RUNNING ou STOPPED.
-    """
+    """RUNNING seulement si tous les IDs sont présents et actifs."""
     if not container_ids:
         return ProjectStatus.STOPPED
-    
-    for c_id in container_ids:
+    states = []
+    for container_id in container_ids:
         try:
-            container = client.containers.get(c_id)
-            # Dès qu'on trouve un conteneur en cours d'exécution, on retourne RUNNING
-            if container.status == "running":
-                return ProjectStatus.RUNNING
+            container = client.containers.get(container_id)
         except docker.errors.NotFound:
-            # Le conteneur a été supprimé manuellement, on le considère comme arrêté
+            return ProjectStatus.FAILED
+        # Une panne du daemon doit remonter, pas transformer l'état en STOPPED.
+        state = container.attrs.get("State", {})
+        if container.status == "exited" and (state.get("ExitCode", 0) != 0 or state.get("OOMKilled")):
+            return ProjectStatus.FAILED
+        states.append(container.status)
+    if all(status == "running" for status in states):
+        return ProjectStatus.RUNNING
+    if all(status == "exited" for status in states):
+        return ProjectStatus.STOPPED
+    return ProjectStatus.FAILED
+
+
+def archive_container_evidence(container):
+    """Diagnostic local avant remplacement, sans copier Config.Env."""
+    directory = Path("app/logs")
+    directory.mkdir(parents=True, exist_ok=True)
+    prefix = directory / f"container_{container.id}"
+    state_file = prefix.with_suffix(".json")
+    state_file.touch(mode=0o600, exist_ok=True)
+    state_file.write_text(json.dumps({
+        "id": container.id, "name": container.name,
+        "image": container.attrs.get("Image"),
+        "state": container.attrs.get("State", {}),
+    }, indent=2), encoding="utf-8")
+    try:
+        log_file = prefix.with_suffix(".log")
+        log_file.touch(mode=0o600, exist_ok=True)
+        log_file.write_bytes(container.logs(tail=200))
+    except docker.errors.APIError:
+        logger.warning("Logs Docker indisponibles pour %s ; état conservé.", container.id)
+
+
+def stop_containers_preserving_evidence(container_ids):
+    for container_id in container_ids:
+        try:
+            container = client.containers.get(container_id)
+            if container.status == "running":
+                container.stop()
+        except docker.errors.NotFound:
             continue
-        except Exception as e:
-            # On log l'erreur mais on continue à vérifier les autres conteneurs de la liste
-            logger.warning(f"Erreur lors de la vérification du conteneur {c_id}: {e}")
-            continue
-            
-    # Si aucun conteneur n'est "running" (ou si la liste était vide/invalide)
-    return ProjectStatus.STOPPED

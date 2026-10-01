@@ -14,6 +14,7 @@ multi_id = run_container(
     slug=f"{SLUG}-front",
     network=net_name,
     envs_var=None,
+    port=80,
     extra_networks=[settings.APP_NETWORK],
 )
 

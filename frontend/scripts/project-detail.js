@@ -211,7 +211,7 @@ function setupControlButtons(slug, componentId) {
       ValaToast.show({ type: 'success', title: 'Action réussie', message: `Le conteneur a bien été ${actionLabel}.` });
 
       // 1. Mettre à jour le badge de statut IMMÉDIATEMENT (Optimiste)
-      const newStatus = (action === 'stop') ? 'stopped' : 'running';
+      const newStatus = result.status || ((action === 'stop') ? 'stopped' : 'running');
       updateStatusUI(newStatus); // <-- C'est ici que le badge change de couleur instantanément
 
       // 2. Mettre à jour le polling des métriques

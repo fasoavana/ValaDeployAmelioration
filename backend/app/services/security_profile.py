@@ -137,4 +137,7 @@ def get_runtime_port(project_type, configured_port: int) -> int:
     if type_name == "REACT_VITE":
         return 8080
 
+    if type_name in {"LARAVEL", "LARAVEL_MONOLITH"}:
+        return 8000
+
     return configured_port

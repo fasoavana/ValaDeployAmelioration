@@ -1,5 +1,6 @@
 #app/schemas/stack_deploy.py
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Field
+from app.core.image_reference import validate_image_reference
 from app.models.project import ComponentKind
 
 
@@ -13,7 +14,7 @@ class StackComponentSchema(BaseModel):
     # --- Champs pour FRONT / BACK ---
     repo_url: str | None = None
     branch: str = 'main'
-    replica: int = 1
+    replica: int = Field(default=1, ge=1)
     envs_var: dict[str, str] | None = None
     expose_publicly: bool = False  # True = routable via Traefik (ex: front, ou back si son API est publique)
     port: int | None = None        # port d'écoute de l'appli dans le conteneur (obligatoire pour front/back)
@@ -32,6 +33,8 @@ class StackComponentSchema(BaseModel):
                 )
             if not (1 <= self.port <= 65535):
                 raise ValueError(f"Le port {self.port} n'est pas valide (doit être entre 1 et 65535).")
+        if self.kind == ComponentKind.DATABASE:
+            validate_image_reference(self.db_image)
         return self
 
 

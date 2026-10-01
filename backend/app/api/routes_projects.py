@@ -8,11 +8,11 @@ from app.models.user import User
 from app.services.project_service import ProjectService
 from app.core.docker_client import client
 from fastapi import Query
-from app.models.project import ProjectComponent, ProjectStatus 
+from app.models.project import ProjectComponent, ProjectStatus, ComponentKind, FailReason
 import logging
 from app.schemas.deploy import CloneSchema
 from app.services.cleanup_service import cleanup_project_resources
-from app.services.container_service import ensure_project_network, manage_container_state, run_container
+from app.services.container_service import manage_container_state, recreate_container
 from app.services.deploy_service import DeployService 
 from app.services.container_service import get_real_containers_status 
 
@@ -74,98 +74,58 @@ def project_action(
     if not project or project.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Projet introuvable ou non autorisé.")
 
-    container_ids_to_manage = []
-    new_status = ProjectStatus.RUNNING if action in ['start', 'restart'] else ProjectStatus.STOPPED
-
-    # 2. Déterminer quels conteneurs toucher (Multi-composant vs Mono)
+    target = project
     if component_id:
-        component = db.query(ProjectComponent).filter(
+        target = db.query(ProjectComponent).filter(
             ProjectComponent.id == component_id,
-            ProjectComponent.project_id == project.id
+            ProjectComponent.project_id == project.id,
         ).first()
-        
-        if not component or not component.container_ids:
-            raise HTTPException(status_code=404, detail="Composant ou conteneurs introuvables pour cet ID.")
-        
-        container_ids_to_manage = component.container_ids
-        component.status = new_status # Mise à jour du statut en BDD
-    else:
-        if not project.container_ids:
-            raise HTTPException(status_code=404, detail="Aucun conteneur associé à ce projet.")
-        
-        container_ids_to_manage = project.container_ids
-        project.status = new_status # Mise à jour du statut en BDD
+    if not target or not target.container_ids:
+        raise HTTPException(status_code=404, detail="Aucun conteneur associé à cette cible.")
+    if project.status in (ProjectStatus.BUILDING, ProjectStatus.PENDING_SECURITY_CONFIRMATION):
+        raise HTTPException(status_code=409, detail="Un déploiement est en cours.")
+    # Ne pas contourner un scan refusé en redémarrant une ancienne ressource.
+    if action != "stop" and (project.status == ProjectStatus.FAILED or target.status == ProjectStatus.FAILED):
+        raise HTTPException(status_code=409, detail="Déploiement en échec : utilisez Retry pour relancer le pipeline complet.")
 
-    new_container_ids = []
-    
-    # On s'assure que le réseau interne existe
-    network_name = ensure_project_network(slug) 
-    
-    # Fonction helper pour trouver le réseau Traefik automatiquement
-    def find_traefik_network():
-        for net in client.networks.list():
-            if "traefik" in net.name.lower() or net.name == "web":
-                return net.name
-        return None
-    
-    #3. Exécuter l'action sur chaque conteneur
-    for c_id in container_ids_to_manage:
+    was_failed = target.status == ProjectStatus.FAILED or project.status == ProjectStatus.FAILED
+    ids = list(target.container_ids)
+    for index, container_id in enumerate(ids):
         try:
-            # Tentative normale (Start/Stop/Restart)
-            manage_container_state(c_id, action, slug)
-            new_container_ids.append(c_id)
-            
-        except Exception as e:
-            error_msg = str(e)
-            # DÉTECTION DU BUG RÉSEAU FANTÔME
-            if "network" in error_msg.lower() and "not found" in error_msg.lower():
-                logger.warning(f"Réseau fantôme détecté pour {c_id}. Recréation automatique du conteneur...")
-                try:
-                    broken_container = client.containers.get(c_id)
-                    
-                    # 1. Récupérer les infos vitales du conteneur cassé
-                    image_name = broken_container.image.tags[0] if broken_container.image.tags else broken_container.image.short_id
-                    container_name = broken_container.name
-                    
-                    # 2. Supprimer le conteneur cassé
-                    broken_container.remove(force=True)
-                    
-                    # 3. Préparer les paramètres pour la recréation
-                    envs = component.env_vars if component_id else project.env_vars
-                    port = component.port if component_id else None
-                    
-                    # Trouver le réseau Traefik pour que le conteneur soit bien exposé
-                    traefik_net = find_traefik_network()
-                    extra_nets = [traefik_net] if (traefik_net and port) else []
+            try:
+                manage_container_state(container_id, action, slug)
+            except Exception as exc:
+                if action == "stop" or "network" not in str(exc).lower() or "not found" not in str(exc).lower():
+                    raise
+                ids[index] = recreate_container(
+                    container_id, slug, target.port,
+                    is_database=bool(component_id and target.kind == ComponentKind.DATABASE),
+                )
+            # Persister chaque remplacement, même si le réplica suivant échoue.
+            target.container_ids = list(ids)
+            db.commit()
+        except Exception as exc:
+            partial_ids = getattr(exc, "container_ids", [])
+            if partial_ids:
+                ids[index:index + 1] = partial_ids
+            target.container_ids = ids
+            target.status = ProjectStatus.FAILED
+            target.error_message = str(exc)
+            target.fail_reason = FailReason.DEPLOY_ERROR
+            project.status = ProjectStatus.FAILED
+            project.error_message = str(exc)
+            db.commit()
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-                    # 4. Recréer le conteneur proprement via run_container
-                    new_id = run_container(
-                        image_name=image_name,
-                        slug=container_name, # On garde le même nom (ex: mytest8-back-1)
-                        network=network_name,
-                        plain_envs_var=envs, # Les vars sont déjà en clair dans la BDD
-                        expose_traefik=True if port else False,
-                        port=port,
-                        extra_networks=extra_nets
-                    )
-                    
-                    new_container_ids.append(new_id)
-                    logger.info(f"Conteneur recréé avec succès: {new_id}")
-                    
-                except Exception as recreate_error:
-                    logger.exception("Erreur lors de la recréation du conteneur")
-                    raise HTTPException(status_code=500, detail=f"Échec de la recréation du conteneur cassé: {str(recreate_error)}")
-            else:
-                # Autre erreur inconnue, on la remonte
-                raise HTTPException(status_code=500, detail=f"Erreur sur le conteneur {c_id}: {error_msg}")
-
-    # 4. Mettre à jour les IDs en BDD (car l'ID a changé après recréation !)
-    if component_id:
-        component.container_ids = new_container_ids
-    else:
-        project.container_ids = new_container_ids
-        
+    target.status = ProjectStatus.STOPPED if action == "stop" else ProjectStatus.RUNNING
+    # Une action sur des ressources partielles ne transforme pas un échec de
+    # pipeline en succès. Un Retry réussi est nécessaire pour cela.
+    if was_failed:
+        target.status = ProjectStatus.FAILED
+    if component_id and project.status != ProjectStatus.FAILED:
+        project.status = ProjectService.aggregate_component_status(project.services)
     db.commit()
+    return {"message": f"Action '{action}' terminée.", "status": target.status.value}
 
 # =============== pipeline endpoints ===============
 
@@ -322,7 +282,7 @@ async def cancel_build(
         raise HTTPException(status_code=404, detail="Projet introuvable")
     
     # Si ce n'est plus en cours de build, on ne fait rien (évite les erreurs si on clique 2 fois)
-    if project.status != ProjectStatus.BUILDING:
+    if project.status not in (ProjectStatus.BUILDING, ProjectStatus.PENDING_SECURITY_CONFIRMATION):
         return {"message": "Le build n'est plus en cours."}
     
     # 1. Marquer le projet comme STOPPED
@@ -351,7 +311,7 @@ async def retry_build(
     try:
         project, is_stack, components, run_id = DeployService.retry_deployment(db, project_id, current_user.id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e))
     
     # Lancer le bon pipeline en background
     if is_stack:
@@ -366,7 +326,7 @@ async def retry_build(
                 "envs_var": c.env_vars or {},
                 "db_image": c.db_image,
                 "volume_name": c.volume_name,
-                "expose_publicly": c.port is not None,
+                "expose_publicly": c.expose_publicly,
                 "port": c.port,
             }
             for c in components
@@ -455,17 +415,24 @@ def get_real_container_status(
         db_status = project.status
         is_component = False
 
-    # 3. Appel au service pour vérifier l'état réel Docker
-    real_status = get_real_containers_status(container_ids_to_check)
-
-    # 4. Synchronisation de la BDD uniquement si l'état a changé (optimisation)
-    if real_status != db_status:
-        logger.info(f"Synchronisation du statut pour {slug} : {db_status.value} -> {real_status.value}")
-        if is_component:
-            component.status = real_status
+    protected = {ProjectStatus.BUILDING, ProjectStatus.PENDING_SECURITY_CONFIRMATION, ProjectStatus.FAILED}
+    if db_status in protected:
+        return {"status": db_status.value}
+    try:
+        if not is_component and project.services:
+            for comp in project.services:
+                if comp.status not in protected:
+                    comp.status = get_real_containers_status(comp.container_ids or [])
+            real_status = ProjectService.aggregate_component_status(project.services)
         else:
-            project.status = real_status
-        db.commit()
-
-    # 5. Retour au frontend
+            real_status = get_real_containers_status(container_ids_to_check)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Impossible de vérifier l'état Docker ; statut conservé.") from exc
+    if is_component:
+        component.status = real_status
+        if project.status not in protected:
+            project.status = ProjectService.aggregate_component_status(project.services)
+    else:
+        project.status = real_status
+    db.commit()
     return {"status": real_status.value}

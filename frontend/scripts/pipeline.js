@@ -64,15 +64,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (retryBtn) {
         retryBtn.addEventListener('click', async () => {
             if (!currentProjectId) return;
+            retryBtn.disabled = true;
             try {
-                const run = await retryBuild(currentProjectId);
-                ValaToast.show({ type: 'success', title: 'Build Retried', message: 'A new run has started.' });
-                if (run && run.id) {
-                    await openRunDetails(run.id);
+                // Le nouveau run est créé en tâche de fond, pas dans la réponse Retry.
+                const previous = await getDeploymentHistory(currentProjectId);
+                const previousIds = new Set(previous.map(run => run.id));
+                await retryBuild(currentProjectId);
+                disconnectWebSocket();
+                stopPollingForRun();
+                document.getElementById('details-view').classList.add('hidden');
+                document.getElementById('history-view').classList.remove('hidden');
+                ValaToast.show({ type: 'success', title: 'Build Retried', message: 'A new run has been requested.' });
+                await loadHistoryList();
+                for (let attempt = 0; attempt < 10; attempt++) {
+                    const history = await getDeploymentHistory(currentProjectId);
+                    const latest = history.find(run => !previousIds.has(run.id));
+                    if (latest) {
+                        await openRunDetails(latest.id);
+                        return;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
+                await loadHistoryList();
             } catch (error) {
                 console.error("Erreur lors du retry :", error);
-                ValaToast.show({ type: 'error', title: 'Error', message: 'Impossible to retry the build.' });
+                ValaToast.show({ type: 'error', title: 'Error', message: error.message || 'Impossible to retry the build.' });
+            } finally {
+                retryBtn.disabled = false;
             }
         });
     }

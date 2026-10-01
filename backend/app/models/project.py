@@ -1,5 +1,5 @@
 #app/models/project.py
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, JSON, Enum
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, JSON, Enum, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -88,6 +88,7 @@ class ProjectComponent(Base):
     commit_hash = Column(String, nullable=True)
     env_vars = Column(JSON, nullable=False, default=dict)
     port = Column(Integer, nullable=True) 
+    expose_publicly = Column(Boolean, nullable=True)
 
     # --- Champs pour un service DATABASE uniquement ---
     db_image = Column(String, nullable=True)             # ex: "postgres:16", null si pas une DB

@@ -35,6 +35,7 @@ async def deploy_stack(
             "db_image": c.db_image,
             "volume_name": c.volume_name,
             "port": c.port,
+            "expose_publicly": c.expose_publicly,
         }
         for c in payload.components
     ]
@@ -77,6 +78,7 @@ async def deploy_stack(
         payload.slug,
         pipeline_components,
         user_id=current_user.id,
+        run_id=new_project.pipeline_run_id,
     )
 
     return {
@@ -94,23 +96,13 @@ async def list_stacks(db: Session = Depends(get_db), current_user: User = Depend
     for project in stacks:
         components = ProjectService.get_components_by_project(db, project.id)
         
-        # On récupère les valeurs des enums sous forme de chaîne pour comparaison
-        comp_statuses = [c.status.value if hasattr(c.status, 'value') else str(c.status) for c in components]
-        
-        if 'building' in comp_statuses:
-            aggregated_status = ProjectStatus.BUILDING
-        elif 'failed' in comp_statuses:
-            aggregated_status = ProjectStatus.FAILED
-        elif 'running' in comp_statuses:
-            aggregated_status = ProjectStatus.RUNNING
-        else:
-            aggregated_status = ProjectStatus.STOPPED
-            
-        # Mise à jour du statut en BDD pour maintenir la cohérence
-        if project.status != aggregated_status:
-            project.status = aggregated_status
-            db.commit()
-            
+        aggregated_status = project.status
+        if project.status not in (ProjectStatus.FAILED, ProjectStatus.BUILDING, ProjectStatus.PENDING_SECURITY_CONFIRMATION):
+            aggregated_status = ProjectService.aggregate_component_status(components)
+            if project.status != aggregated_status:
+                project.status = aggregated_status
+                db.commit()
+
         result.append({
             "project_id": project.id,
             "slug": project.slug,
@@ -145,7 +137,7 @@ async def get_stack_status(
                 "kind": c.kind,
                 "status": c.status,
                 "error_message": c.error_message,
-                "container_ids": c.container_ids if c.status == ProjectStatus.RUNNING else None,
+                "container_ids": c.container_ids,
             }
             for c in components
         ],

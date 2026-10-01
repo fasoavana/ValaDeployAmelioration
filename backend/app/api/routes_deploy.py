@@ -39,7 +39,8 @@ async def deploy(
         DeployService.run_deployment_pipeline, 
         new_project.id, 
         payload,
-        user_id=current_user.id
+        user_id=current_user.id,
+        run_id=new_project.pipeline_run_id,
     )
 
     return {
@@ -62,7 +63,7 @@ async def get_deploy_status(
         "project_id": project.id,
         "status": project.status,
         "error_message": project.error_message,
-        "container_ids": project.container_ids if project.status == ProjectStatus.RUNNING else None,
+        "container_ids": project.container_ids,
     }
     
 @router.get("/deploy/stack/component/{component_id}/reveal-db-credentials")
@@ -77,7 +78,7 @@ def reveal_db_credentials(
         raise HTTPException(404, "Composant introuvable ou n'est pas une base de données")
     
     # 2. Récupérer le projet parent
-    project = ProjectService.get_project_by_id(db, component.project_id)
+    project = ProjectService.get_project_by_id(db, component.project_id, current_user.id)
     if not project:
         raise HTTPException(404, "Projet parent introuvable")
     

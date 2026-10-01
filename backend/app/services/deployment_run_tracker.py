@@ -26,6 +26,8 @@ def update_pipeline_run(db: Session, run_id: int, status: PipelineStatus, log_me
 
         if status in [PipelineStatus.SUCCESS, PipelineStatus.FAILED]:
             run.finished_at = datetime.now(timezone.utc)
+        else:
+            run.finished_at = None
 
         db.commit()
         db.refresh(run)

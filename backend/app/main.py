@@ -14,12 +14,13 @@ from app.api.routes_deployment import router as deployment_router
 from app.api.routes_metrics import router as metrics_router
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.boostrap import bootstrap_initial_admin
+from app.core.startup import initialize_database
+from fastapi.concurrency import run_in_threadpool
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Exécuté au démarrage du serveur
-    bootstrap_initial_admin()
+    await run_in_threadpool(initialize_database)
     yield
     # Exécuté à l'arrêt du serveur (nettoyage si besoin)
     

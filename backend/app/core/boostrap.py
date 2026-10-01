@@ -1,6 +1,7 @@
 import logging
 import secrets
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.db.database import Session_local
 from app.models.user import User, UserRole
@@ -13,6 +14,8 @@ def bootstrap_initial_admin():
     """
     db: Session = Session_local()
     try:
+        # Verrou transactionnel : plusieurs workers ne créent pas deux admins.
+        db.execute(text("SELECT pg_advisory_xact_lock(824601, 2)"))
         # Vérifie si un admin existe déjà
         admin_exists = db.query(User).filter(User.role == UserRole.ADMIN).first()
         
@@ -42,5 +45,6 @@ def bootstrap_initial_admin():
     except Exception as e:
         logging.error(f"Erreur lors du bootstrap de l'admin initial : {e}")
         db.rollback()
+        raise
     finally:
         db.close()

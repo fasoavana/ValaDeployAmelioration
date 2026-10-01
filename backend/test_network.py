@@ -14,6 +14,7 @@ back_id = run_container(
     slug=f"{SLUG}-back",
     network=net_name,
     envs_var=None,
+    port=80,
 )
 print(f"Conteneur back lancé : {back_id[:12]}")
 
@@ -23,6 +24,7 @@ front_id = run_container(
     slug=f"{SLUG}-front",
     network=net_name,
     envs_var=None,
+    port=80,
 )
 print(f"Conteneur front lancé : {front_id[:12]}")
 

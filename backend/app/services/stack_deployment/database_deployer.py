@@ -47,14 +47,18 @@ class DatabaseComponentDeployer(ComponentDeployer):
                 extra_networks=None,
                 volumes=volume_binding,
                 expose_traefik=False,
+                security_profile=None,
+                preserve_volumes=True,
             )
             ProjectService.finalize_component_success(ctx.db, component.id, container_ids=[container_id])
             ctx.db_component = component
             log(f"  [DB]  Base de données démarrée avec succès (container_id: {container_id[:12]})\n")
         except Exception as e:
+            if hasattr(e, "container_ids"):
+                component.container_ids = e.container_ids
             log(f"  [DB]  Erreur démarrage database: {e}")
             log(traceback.format_exc())
             ProjectService.mark_component_failed(
                 ctx.db, component.id, f"Erreur démarrage database: {e}", fail_reason=FailReason.DEPLOY_ERROR
             )
-            update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.FAILED, f"Erreur DB: {e}")
+            update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.DEPLOYING, f"Erreur DB: {e}")

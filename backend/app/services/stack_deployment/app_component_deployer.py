@@ -1,5 +1,6 @@
 #app/services/stack_deployment/app_component_deployer.py
 import traceback
+import uuid
 
 from app.core.config import settings
 from app.models.deployment import DeploymentRun, PipelineStatus
@@ -49,7 +50,7 @@ class AppComponentDeployer(ComponentDeployer):
     # ------------------------------------------------------------------ #
     def deploy(self, ctx: StackDeploymentContext) -> None:
         comp_payload = ctx.comp_payload
-        ctx.destination_path = f"/tmp/ids-repo/{ctx.container_name}"
+        ctx.destination_path = f"/tmp/ids-repo/{ctx.container_name}-{uuid.uuid4().hex}"
 
         if comp_payload.get("port") is None:
             ctx.log(f"  [ERROR] Port d'écoute non renseigné pour {ctx.container_name}")
@@ -148,6 +149,7 @@ class AppComponentDeployer(ComponentDeployer):
                 ctx.container_name,
                 ctx.clone_result["commit_hash"],
                 build_args=self.build_args(ctx) or None,
+                project_type=ctx.detect_result,
             )
             log("         Build de l'image terminé avec succès.")
             return True
@@ -205,7 +207,7 @@ class AppComponentDeployer(ComponentDeployer):
                     fail_reason=FailReason.VULNERABILITY,
                     vulnerabilities=crit_vulns,
                 )
-                update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.FAILED, f"Vulnérabilité critique — {reason}")
+                update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.DEPLOYING, f"Vulnérabilité critique — {reason}")
                 return False
 
         log("        Scan de sécurité validé.")
@@ -242,6 +244,8 @@ class AppComponentDeployer(ComponentDeployer):
             )
             log(f"  [DEPLOY]  Composant {ctx.container_name} démarré avec succès\n")
         except Exception as e:
+            if hasattr(e, "container_ids"):
+                component.container_ids = e.container_ids
             log(f"  [DEPLOY]  Erreur déploiement: {e}")
             log(traceback.format_exc())
             self._fail(ctx, f"Erreur déploiement: {e}", FailReason.DEPLOY_ERROR, f"Erreur déploiement: {e}")
@@ -251,7 +255,7 @@ class AppComponentDeployer(ComponentDeployer):
     # ------------------------------------------------------------------ #
     def _fail(self, ctx: StackDeploymentContext, error_message: str, fail_reason: FailReason, run_message: str) -> None:
         ProjectService.mark_component_failed(ctx.db, ctx.component.id, error_message, fail_reason=fail_reason)
-        update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.FAILED, run_message)
+        update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.DEPLOYING, run_message)
 
     def _checkpoint_cancelled(self, ctx: StackDeploymentContext, when: str) -> bool:
         if not ctx.is_cancelled():
@@ -260,7 +264,7 @@ class AppComponentDeployer(ComponentDeployer):
         ProjectService.mark_component_failed(
             ctx.db, ctx.component.id, "Build annulé par l'utilisateur", fail_reason=FailReason.OTHER
         )
-        update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.FAILED, f"Annulé {when}")
+        update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.DEPLOYING, f"Annulé {when}")
         ctx.db.commit()
         ctx.request_stop()  # signale à l'orchestrateur de `break` la boucle des composants
         return True

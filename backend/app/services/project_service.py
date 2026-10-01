@@ -6,11 +6,27 @@ from app.models.user import User
 from datetime import datetime
 from typing import List, Dict, Any
 import secrets
+import uuid
 from app.services.cleanup_service import cleanup_project_resources
 
 class ProjectService:
     """Service pour la gestion des projets en base de données"""
     
+    @staticmethod
+    def aggregate_component_status(components):
+        statuses = [component.status for component in components]
+        if not statuses or ProjectStatus.FAILED in statuses:
+            return ProjectStatus.FAILED
+        if ProjectStatus.PENDING_SECURITY_CONFIRMATION in statuses:
+            return ProjectStatus.PENDING_SECURITY_CONFIRMATION
+        if ProjectStatus.BUILDING in statuses:
+            return ProjectStatus.BUILDING
+        if all(status == ProjectStatus.RUNNING for status in statuses):
+            return ProjectStatus.RUNNING
+        if all(status == ProjectStatus.STOPPED for status in statuses):
+            return ProjectStatus.STOPPED
+        return ProjectStatus.FAILED
+
     @staticmethod
     def get_user_projects(db: Session, user_id: int) -> List[Project]:
         """
@@ -121,6 +137,7 @@ class ProjectService:
             replica=replica,
             env_vars=env_vars,
             status=ProjectStatus.BUILDING,
+            pipeline_run_id=str(uuid.uuid4()),
             container_ids=None,
             commit_hash=None,
             port=port,
@@ -336,6 +353,7 @@ class ProjectService:
             replica=1,          # non significatif au niveau stack, chaque composant a le sien
             env_vars={},        # idem : les vraies env_vars sont sur chaque ProjectComponent
             status=ProjectStatus.BUILDING,
+            pipeline_run_id=str(uuid.uuid4()),
             container_ids=None,
             commit_hash=None,
             created_at=datetime.utcnow()
@@ -358,6 +376,7 @@ class ProjectService:
                 db_image=c.get("db_image"),
                 volume_name=c.get("volume_name"),
                 port=c.get("port"),
+                expose_publicly=c.get("expose_publicly", False),
                 created_at=datetime.utcnow()
             )
             db.add(component)
@@ -376,6 +395,10 @@ class ProjectService:
         component = ProjectService.get_component_by_id(db, component_id)
         if component is None:
             return None
+
+        # Un volume PostgreSQL existant conserve son mot de passe au Retry.
+        if component.db_user and component.db_name and component.db_password:
+            return component
 
         component.db_user = f"{slug}_user"
         component.db_name = f"{slug}_db"

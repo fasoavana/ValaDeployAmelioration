@@ -29,17 +29,15 @@ function handleResponse(response) {
             console.log('Réponse brute (erreur) :', text);
             
             // Essayer de parser en JSON si possible
+            let message;
             try {
-                var errorBody = JSON.parse(text);
-                var error = new Error(extractErrorMessage(errorBody));
-                error.status = response.status;
-                throw error;
+                message = extractErrorMessage(JSON.parse(text));
             } catch (e) {
-                // Si ce n'est pas du JSON, utiliser le texte brut
-                var error = new Error(text || 'Erreur ' + response.status);
-                error.status = response.status;
-                throw error;
+                message = text || 'Erreur ' + response.status;
             }
+            const error = new Error(message);
+            error.status = response.status;
+            throw error;
         });
     }
     

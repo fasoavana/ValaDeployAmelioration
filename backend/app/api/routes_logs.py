@@ -88,7 +88,7 @@ async def websocket_logs(websocket: WebSocket,
             except Exception as e:
                 logger.error(f"Erreur stream fichier log: {e}")
                 
-        elif container_ref and project.status in [ProjectStatus.RUNNING, ProjectStatus.BUILDING]:
+        elif container_ref and project.status in [ProjectStatus.RUNNING, ProjectStatus.BUILDING, ProjectStatus.FAILED, ProjectStatus.STOPPED]:
             await websocket.send_text("---  Stream des logs du conteneur en direct ---\n")
             try:
                 async for line in stream_container_logs(container_ref):

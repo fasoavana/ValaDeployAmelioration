@@ -4,6 +4,7 @@ Configuration general et transversale de l'application.
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 
 class Settings(BaseSettings):
@@ -26,7 +27,10 @@ class Settings(BaseSettings):
     # fonction considerée comme une propriété de la classe,
     @property 
     def url(self) -> str: 
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return URL.create(
+            "postgresql", username=self.POSTGRES_USER, password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST, port=self.POSTGRES_PORT, database=self.POSTGRES_DB,
+        ).render_as_string(hide_password=False)
 
     # attribut par convention, pour définir le fichier .env à utiliser
     model_config = SettingsConfigDict(env_file = ".env", extra = "ignore")
