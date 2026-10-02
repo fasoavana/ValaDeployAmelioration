@@ -18,7 +18,10 @@ from app.services.scan_service import scan_image, detect_secret
 from app.core.config import settings
 from app.core.exceptions import BuildError, DeployError, DetectionError, SecretLeakError, VulnerabilityError
 from app.models.project import Project, FailReason, ComponentKind, ProjectStatus, ProjectComponent
-from app.services.container_service import ensure_project_network
+from app.services.network_service import (
+    ensure_private_network,
+    ensure_ingress_network,
+)
 from app.services.deployment_lock import project_deployment_lock
 from app.core.docker_client import client
 from app.core.image_reference import validate_image_reference
@@ -232,12 +235,22 @@ class DeployService:
                 update_pipeline_run(db, history_run_id, PipelineStatus.DEPLOYING, f"Démarrage des {payload.replica} conteneur(s)")
 
                 failure_stage = FailReason.DEPLOY_ERROR
+                # Isolation réseau :
+                # - réseau privé propre au projet
+                # - réseau ingress propre au projet pour Traefik
+                project_network = ensure_private_network(payload.slug)
+                ingress_network = ensure_ingress_network(payload.slug)
+
                 container_ids = scale_project(
                     build_result,
-                    payload.slug, settings.APP_NETWORK,
-                    payload.replica, payload.envs_var,
+                    slug=payload.slug,
+                    network=project_network,
+                    desired_replicas=payload.replica,
+                    envs_var=payload.envs_var,
+                    extra_networks=[ingress_network],
                     port=get_runtime_port(detect_result, payload.port),
                     security_profile=get_security_profile(detect_result),
+                    traefik_network=ingress_network,
                 )
                 log("      Conteneurs démarrés et connectés au réseau.")
 
@@ -396,7 +409,7 @@ class DeployService:
                 if is_cancelled():
                     update_pipeline_run(db, history_run_id, PipelineStatus.FAILED, "Run obsolète ou annulé")
                     return
-                project_network = ensure_project_network(slug)
+                project_network = ensure_private_network(slug)
                 ctx = StackDeploymentContext(
                     db=db,
                     slug=slug,

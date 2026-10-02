@@ -12,7 +12,11 @@ from app.models.project import ProjectComponent, ProjectStatus, ComponentKind, F
 import logging
 from app.schemas.deploy import CloneSchema
 from app.services.cleanup_service import cleanup_project_resources
-from app.services.container_service import manage_container_state, recreate_container
+from app.services.container_service import (
+    manage_container_state,
+    recreate_container,
+    requires_network_migration,
+)
 from app.services.deploy_service import DeployService 
 from app.services.container_service import get_real_containers_status 
 
@@ -92,15 +96,55 @@ def project_action(
     ids = list(target.container_ids)
     for index, container_id in enumerate(ids):
         try:
-            try:
-                manage_container_state(container_id, action, slug)
-            except Exception as exc:
-                if action == "stop" or "network" not in str(exc).lower() or "not found" not in str(exc).lower():
-                    raise
-                ids[index] = recreate_container(
-                    container_id, slug, target.port,
-                    is_database=bool(component_id and target.kind == ComponentKind.DATABASE),
+            is_database = bool(
+                component_id
+                and target.kind == ComponentKind.DATABASE
+            )
+
+            # Un ancien conteneur utilisant encore l'architecture réseau
+            # globale doit être recréé afin de mettre à jour à la fois
+            # ses réseaux ET ses labels Traefik.
+            if (
+                action != "stop"
+                and requires_network_migration(
+                    container_id,
+                    slug,
+                    is_database=is_database,
                 )
+            ):
+                ids[index] = recreate_container(
+                    container_id,
+                    slug,
+                    target.port,
+                    is_database=is_database,
+                )
+
+            else:
+                try:
+                    manage_container_state(
+                        container_id,
+                        action,
+                        slug,
+                    )
+                except Exception as exc:
+                    # Compatibilité : si un réseau Docker référencé a été
+                    # supprimé, recréer proprement le conteneur.
+                    message = str(exc).lower()
+
+                    if (
+                        action == "stop"
+                        or "network" not in message
+                        or "not found" not in message
+                    ):
+                        raise
+
+                    ids[index] = recreate_container(
+                        container_id,
+                        slug,
+                        target.port,
+                        is_database=is_database,
+                    )
+
             # Persister chaque remplacement, même si le réplica suivant échoue.
             target.container_ids = list(ids)
             db.commit()

@@ -14,6 +14,12 @@ from app.core.exceptions import DeployError
 from app.core.image_reference import validate_image_reference
 from app.core.config import settings
 from app.services.security_profile import get_security_profile, get_runtime_port
+from app.services.network_service import (
+    ensure_private_network,
+    ensure_ingress_network,
+    get_private_network_name,
+    get_ingress_network_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +79,8 @@ def run_container(image_name: str, slug: str, network: str, envs_var: dict = Non
                   expose_traefik: bool = True, plain_envs_var: dict = None, port: int = None,
                   security_profile: SecurityProfile | None = STANDARD_PROFILE,
                   labels: dict = None, command=None, entrypoint=None, user=None,
-                  working_dir=None, preserve_volumes=False) -> str:
+                  working_dir=None, preserve_volumes=False,
+                  traefik_network: str | None = None) -> str:
     # Valider AVANT tout appel Docker ou remplacement du conteneur existant.
     validate_image_reference(image_name)
     if expose_traefik and port is None:
@@ -81,7 +88,13 @@ def run_container(image_name: str, slug: str, network: str, envs_var: dict = Non
 
     container_labels = dict(labels or {})
     if expose_traefik:
-        container_labels.update(build_traefik_labels(slug, internal_port=port))
+        container_labels.update(
+            build_traefik_labels(
+                slug,
+                internal_port=port,
+                network_name=traefik_network,
+            )
+        )
     var_envs = {key: decrypt_data(value) for key, value in (envs_var or {}).items()}
     var_envs.update(plain_envs_var or {})
     security_kwargs = security_profile.docker_kwargs() if security_profile is not None else {}
@@ -132,47 +145,99 @@ def run_container(image_name: str, slug: str, network: str, envs_var: dict = Non
 
 
 def recreate_container(container_id, project_slug, configured_port, is_database=False):
-    """Répare un réseau absent sans deviner un runtime ou perdre les volumes."""
+    """
+    Recrée un conteneur sur l'architecture réseau isolée.
+
+    Les anciens rattachements à valadeploy_app-network ne sont pas
+    restaurés. Le conteneur rejoint toujours le réseau privé de son
+    projet et, seulement s'il est public, son réseau ingress.
+    """
     old = client.containers.get(container_id)
     config = old.attrs["Config"]
     labels = dict(config.get("Labels") or {})
-    runtime_type = (old.image.attrs.get("Config", {}).get("Labels") or {}).get("io.valadeploy.runtime-type")
-    if not is_database and (not runtime_type or runtime_type == "unknown"):
-        raise ValueError("Ancienne image sans métadonnées runtime : utilisez Retry pour reconstruire avec le template actuel.")
-    port = None if is_database else get_runtime_port(runtime_type, configured_port)
-    expose = not is_database and labels.get("traefik.enable") == "true"
-    networks = list(old.attrs.get("NetworkSettings", {}).get("Networks", {}))
-    project_network = f"net-{project_slug}"
-    if project_network in networks:
-        network = ensure_project_network(project_slug)
-    elif settings.APP_NETWORK in networks:
-        network = settings.APP_NETWORK
-    else:
-        raise ValueError("Réseau principal indéterminé ; utilisez Retry.")
-    # Les réseaux tiers manquants ne sont pas recréés arbitrairement.
-    extra = [name for name in networks if name != network]
-    for name in [network, *extra]:
-        client.networks.get(name)
-    volumes = {}
-    for mount in old.attrs.get("Mounts", []):
-        if mount["Type"] in ("volume", "bind"):
-            source = mount.get("Name") if mount["Type"] == "volume" else mount["Source"]
-            volumes[source] = {"bind": mount["Destination"], "mode": "rw" if mount.get("RW") else "ro"}
-    envs = dict(item.split("=", 1) for item in config.get("Env", []) if "=" in item)
-    return run_container(
-        image_name=old.image.id, slug=old.name, network=network,
-        extra_networks=extra, volumes=volumes, plain_envs_var=envs,
-        expose_traefik=expose, port=port, labels=labels,
-        security_profile=None if is_database else get_security_profile(runtime_type),
-        command=config.get("Cmd"), entrypoint=config.get("Entrypoint"),
-        user=config.get("User"), working_dir=config.get("WorkingDir"),
+
+    runtime_type = (
+        old.image.attrs.get("Config", {}).get("Labels") or {}
+    ).get("io.valadeploy.runtime-type")
+
+    if not is_database and (
+        not runtime_type or runtime_type == "unknown"
+    ):
+        raise ValueError(
+            "Ancienne image sans métadonnées runtime : "
+            "utilisez Retry pour reconstruire avec le template actuel."
+        )
+
+    port = (
+        None
+        if is_database
+        else get_runtime_port(runtime_type, configured_port)
     )
 
+    expose = (
+        not is_database
+        and labels.get("traefik.enable") == "true"
+    )
+
+    # Toute recréation migre vers le réseau privé du projet.
+    private_network = ensure_private_network(project_slug)
+
+    extra_networks = None
+    traefik_network = None
+
+    # Uniquement les services publics rejoignent l'ingress du projet.
+    if expose:
+        traefik_network = ensure_ingress_network(project_slug)
+        extra_networks = [traefik_network]
+
+    volumes = {}
+
+    for mount in old.attrs.get("Mounts", []):
+        if mount["Type"] in ("volume", "bind"):
+            source = (
+                mount.get("Name")
+                if mount["Type"] == "volume"
+                else mount["Source"]
+            )
+
+            volumes[source] = {
+                "bind": mount["Destination"],
+                "mode": "rw" if mount.get("RW") else "ro",
+            }
+
+    envs = dict(
+        item.split("=", 1)
+        for item in config.get("Env", [])
+        if "=" in item
+    )
+
+    return run_container(
+        image_name=old.image.id,
+        slug=old.name,
+        network=private_network,
+        extra_networks=extra_networks,
+        volumes=volumes,
+        plain_envs_var=envs,
+        expose_traefik=expose,
+        port=port,
+        labels=labels,
+        security_profile=(
+            None
+            if is_database
+            else get_security_profile(runtime_type)
+        ),
+        command=config.get("Cmd"),
+        entrypoint=config.get("Entrypoint"),
+        user=config.get("User"),
+        working_dir=config.get("WorkingDir"),
+        traefik_network=traefik_network,
+    )
 
 def scale_project(image_name: str, slug: str, network: str, desired_replicas: int,
                    envs_var: dict = None, extra_networks: list = None,
                    plain_envs_var: dict = None, port: int = None, expose_traefik: bool = True,
-                   security_profile: SecurityProfile | None = STANDARD_PROFILE) -> list:
+                   security_profile: SecurityProfile | None = STANDARD_PROFILE,
+                   traefik_network: str | None = None) -> list:
     """
     Scale the number of running containers for a project.
 
@@ -228,6 +293,7 @@ def scale_project(image_name: str, slug: str, network: str, desired_replicas: in
                 image_name, container_name, network, envs_var, extra_networks,
                 plain_envs_var=plain_envs_var, port=port,
                 expose_traefik=expose_traefik, security_profile=security_profile,
+                traefik_network=traefik_network,
             )
             running_container_ids.append(new_container_id)
         except Exception as exc:
@@ -240,57 +306,101 @@ def scale_project(image_name: str, slug: str, network: str, desired_replicas: in
     return running_container_ids
 
 
-def ensure_project_network(slug: str) -> str:
+
+
+def requires_network_migration(
+    container_id: str,
+    project_slug: str,
+    *,
+    is_database: bool = False,
+) -> bool:
     """
-    NOUVEAU — Crée un réseau Docker dédié à un projet s'il n'existe pas déjà,
-    et retourne son nom. Idempotent : si le réseau existe déjà, ne fait rien
-    et retourne juste le nom.
+    Détermine si un conteneur utilise encore l'ancienne architecture réseau.
 
-    Ce réseau sert de réseau INTERNE au projet : tous les services d'une même
-    stack (front/back/db) y sont connectés pour se joindre par nom de conteneur,
-    sans être exposés à l'extérieur (contrairement au réseau Traefik).
-
-    Args:
-        slug (str): le slug du projet (ex: "myapp")
-
-    Returns:
-        str: le nom du réseau créé (ex: "net-myapp")
+    Un conteneur doit être recréé si :
+    - il utilise encore valadeploy_app-network ;
+    - il n'est pas connecté au réseau privé du projet ;
+    - un service public n'utilise pas le bon ingress ;
+    - le label traefik.docker.network ne pointe pas sur l'ingress attendu.
     """
-    network_name = f"net-{slug}"
-    try:
-        client.networks.get(network_name)  # déjà existant, rien à faire
-    except docker.errors.NotFound:
-        client.networks.create(network_name, driver="bridge")
-    return network_name
+    container = client.containers.get(container_id)
+    container.reload()
 
+    networks = set(
+        container.attrs
+        .get("NetworkSettings", {})
+        .get("Networks", {})
+        .keys()
+    )
+
+    labels = (
+        container.attrs
+        .get("Config", {})
+        .get("Labels", {})
+        or {}
+    )
+
+    private_network = get_private_network_name(project_slug)
+
+    if settings.APP_NETWORK in networks:
+        return True
+
+    if private_network not in networks:
+        return True
+
+    if is_database:
+        return any(
+            network.startswith("ingress-")
+            for network in networks
+        )
+
+    expose = labels.get("traefik.enable") == "true"
+
+    if expose:
+        ingress_network = get_ingress_network_name(project_slug)
+
+        if ingress_network not in networks:
+            return True
+
+        if labels.get("traefik.docker.network") != ingress_network:
+            return True
+
+    return False
 
 def manage_container_state(container_id: str, action: str, project_slug: str) -> str:
     """
-    Démarre, arrête ou redémarre un conteneur par son ID.
-    Résout le problème 'network not found' en s'assurant que le réseau
-    du projet existe avant toute tentative de démarrage.
+    Démarre, arrête ou redémarre un conteneur.
+
+    La migration réseau des anciens conteneurs n'est pas réalisée ici :
+    elle nécessite une recréation afin de mettre également à jour
+    les labels Docker/Traefik.
     """
     try:
         container = client.containers.get(container_id)
     except docker.errors.NotFound:
-        raise ValueError(f"Conteneur {container_id} introuvable dans Docker.")
+        raise ValueError(
+            f"Conteneur {container_id} introuvable dans Docker."
+        )
 
-    # LA CLÉ : On s'assure que le réseau interne du projet existe avant start/restart
-    if action in ['start', 'restart']:
-        ensure_project_network(project_slug)
-
-    if action == 'start':
+    if action == "start":
         container.start()
-    elif action == 'stop':
-        container.stop()
-    elif action == 'restart':
-        container.restart()
-    else:
-        raise ValueError(f"Action '{action}' non supportée.")
 
-    if action in ['start', 'restart']:
+    elif action == "stop":
+        container.stop()
+
+    elif action == "restart":
+        container.restart()
+
+    else:
+        raise ValueError(
+            f"Action '{action}' non supportée."
+        )
+
+    if action in ("start", "restart"):
         verify_containers_running([container.id])
+
     return container.id
+
 
 def get_real_containers_status(container_ids: list) -> ProjectStatus:
     """RUNNING seulement si tous les IDs sont présents et actifs."""

@@ -47,29 +47,63 @@ def cleanup_project_resources(slug: str, container_ids: list = None):
                 except Exception as e:
                     logger.warning(f" Échec suppression image {tag}: {e}")
 
-    # 4. Supprimer le réseau spécifique au projet (avec protections)
-    protected_networks = [
-        "bridge", "host", "none", 
-        settings.APP_NETWORK,       # Le réseau principal de ValaDeploy
-        "traefik", "web",           # Réseaux classiques de routage
-                                    # Protection explicite au cas où
-    ]
-    
+    # 4. Supprimer les réseaux propres au projet.
+    #
+    # Le réseau privé doit normalement être vide après suppression
+    # des conteneurs. Le réseau ingress peut encore contenir Traefik :
+    # dans ce cas on déconnecte uniquement Traefik avant suppression.
+    protected_networks = {
+        "bridge",
+        "host",
+        "none",
+        settings.APP_NETWORK,
+        "traefik",
+        "web",
+    }
+
+    project_networks = {
+        f"net-{slug}",
+        f"ingress-{slug}",
+    }
+
     for network in client.networks.list():
-        # Ignorer immédiatement les réseaux protégés
         if network.name in protected_networks:
             continue
-            
-        # Cibler uniquement les réseaux créés pour CE projet (nom exact ou préfixe slug-)
-        if network.name == slug or network.name.startswith(f"{slug}-"):
-            try:
-                # Sécurité ultime : ne supprimer que si aucun conteneur n'est encore attaché
-                if len(network.containers) == 0:
-                    network.remove()
-                    logger.info(f" Réseau supprimé: {network.name}")
-                else:
-                    logger.info(f"ℹ Réseau {network.name} conservé : encore utilisé par d'autres conteneurs.")
-            except Exception as e:
-                logger.warning(f" Échec suppression réseau {network.name}: {e}")
-                
+
+        if network.name not in project_networks:
+            continue
+
+        try:
+            network.reload()
+
+            if network.name == f"ingress-{slug}":
+                for container in list(network.containers):
+                    labels = container.attrs.get("Config", {}).get(
+                        "Labels"
+                    ) or {}
+
+                    if (
+                        labels.get("com.docker.compose.service")
+                        == "traefik"
+                    ):
+                        network.disconnect(container, force=True)
+
+                network.reload()
+
+            if len(network.containers) == 0:
+                network.remove()
+                logger.info(
+                    f" Réseau supprimé: {network.name}"
+                )
+            else:
+                logger.info(
+                    f" Réseau {network.name} conservé : "
+                    "encore utilisé par des conteneurs."
+                )
+
+        except Exception as e:
+            logger.warning(
+                f" Échec suppression réseau {network.name}: {e}"
+            )
+
     logger.info(f" Nettoyage Docker terminé pour: {slug}")

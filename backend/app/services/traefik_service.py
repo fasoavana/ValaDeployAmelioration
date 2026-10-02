@@ -2,9 +2,10 @@ import re
 from app.core.config import settings
 
 def build_traefik_labels(
-    project_name: str,      # unique identifier for the project (slug)
-    internal_port: int,   # Ex: 8000
-    base_domain: str = settings.APP_DOMAIN  # Ex: "localhost"
+    project_name: str,
+    internal_port: int,
+    base_domain: str = settings.APP_DOMAIN,
+    network_name: str | None = None,
 ) -> dict[str, str]:
     
     
@@ -13,7 +14,7 @@ def build_traefik_labels(
     
     return {
         "traefik.enable": "true",
-        "traefik.docker.network": settings.APP_NETWORK,
+        "traefik.docker.network": network_name or settings.APP_NETWORK,
         
         # Le même unique_id lie la règle de route au service correspondant
         f"traefik.http.routers.{project_name}.rule": f"Host(`{domain}`)",

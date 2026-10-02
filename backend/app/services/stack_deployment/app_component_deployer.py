@@ -215,7 +215,19 @@ class AppComponentDeployer(ComponentDeployer):
 
     def _deploy_container(self, ctx: StackDeploymentContext) -> None:
         comp_payload, component, log = ctx.comp_payload, ctx.component, ctx.log
-        extra_nets = [settings.APP_NETWORK] if comp_payload.get("expose_publicly") else None
+
+        # Un service public ne rejoint plus le réseau global ValaDeploy.
+        # Il conserve le réseau privé de sa stack et reçoit uniquement
+        # un réseau ingress propre au projet, partagé avec Traefik.
+        ingress_network = None
+        extra_nets = None
+
+        if comp_payload.get("expose_publicly"):
+            from app.services.network_service import ensure_ingress_network
+
+            ingress_network = ensure_ingress_network(ctx.slug)
+            extra_nets = [ingress_network]
+
         plain_envs = self.runtime_envs(ctx)
 
         log(
@@ -238,6 +250,7 @@ class AppComponentDeployer(ComponentDeployer):
                 plain_envs_var=plain_envs,
                 expose_traefik=comp_payload.get("expose_publicly", False),
                 security_profile=get_security_profile(ctx.detect_result),
+                traefik_network=ingress_network,
             )
             ProjectService.finalize_component_success(
                 ctx.db, component.id, container_ids=container_ids, commit_hash=ctx.clone_result["commit_hash"]

@@ -26,6 +26,7 @@ with patch('docker.from_env', return_value=MagicMock()):
     import app.main
     from app.services import container_service as cs
     from app.services import deploy_service as ds
+    from app.services import network_service as ns
     from app.services.build import builder
     from app.services.stack_deployment.app_component_deployer import AppComponentDeployer
     from app.services.stack_deployment.database_deployer import DatabaseComponentDeployer
@@ -194,7 +195,10 @@ class Runtime(unittest.TestCase):
             'NetworkSettings': {'Networks': {'net-demo': {}, cs.settings.APP_NETWORK: {}}},
             'Mounts': [{'Type': 'volume', 'Name': 'my-data', 'Destination': '/data', 'RW': True}],
         }
-        with patch.object(cs, 'client') as client, patch.object(cs, 'run_container', return_value='new') as run:
+        with patch.object(cs, 'client') as client, \
+             patch.object(cs, 'ensure_private_network', return_value='net-demo'), \
+             patch.object(cs, 'ensure_ingress_network', return_value='ingress-demo'), \
+             patch.object(cs, 'run_container', return_value='new') as run:
             client.containers.get.return_value = old
             self.assertEqual(cs.recreate_container('old', 'demo', 80), 'new')
             kwargs = run.call_args.kwargs
@@ -204,7 +208,9 @@ class Runtime(unittest.TestCase):
             self.assertEqual(kwargs['volumes']['my-data']['bind'], '/data')
             self.assertEqual(kwargs['slug'], old.name)
             self.assertEqual(kwargs['labels']['custom.label'], 'preserved')
-            self.assertEqual(kwargs['extra_networks'], [cs.settings.APP_NETWORK])
+            self.assertEqual(kwargs['network'], 'net-demo')
+            self.assertEqual(kwargs['extra_networks'], ['ingress-demo'])
+            self.assertEqual(kwargs['traefik_network'], 'ingress-demo')
 
     def test_legacy_recreation_fails_before_removal(self):
         old = MagicMock()
@@ -336,6 +342,8 @@ class DatabaseAndPipelines(unittest.TestCase):
                  patch.object(ds, 'detect_project_type', return_value=ProjectType.REACT_VITE), \
                  patch.object(ds, 'prepare_build_environment'), patch.object(ds, 'generate_dockerfile'), \
                  patch.object(ds, 'build_docker_image', return_value='demo:new'), patch.object(ds, 'scan_image', return_value=scan), \
+                 patch.object(ds, 'ensure_private_network', return_value='net-demo'), \
+                 patch.object(ds, 'ensure_ingress_network', return_value='ingress-demo'), \
                  patch.object(ds, 'scale_project', side_effect=cs.ContainerDeploymentError('ExitCode=1', ['partial'])):
                 ds.DeployService.run_deployment_pipeline(self.pid, CloneSchema(slug='demo', repo_url='example', port=80), 1, 'run')
         self.db.expire_all()
@@ -356,7 +364,7 @@ class DatabaseAndPipelines(unittest.TestCase):
         fake_back = MagicMock()
         payloads = [{'component_id': c.id, 'kind': c.kind, 'name': c.name} for c in [db_comp, back]]
         with patch.object(ds, 'Session_local', self.sessions), patch.object(ds, 'project_deployment_lock', return_value=nullcontext()), \
-             patch.object(ds, 'ensure_project_network', return_value='net-demo'), \
+             patch.object(ds, 'ensure_private_network', return_value='net-demo'), \
              patch.object(ds, 'get_component_deployer', side_effect=[fake_db, fake_back]):
             ds.DeployService.run_stack_deployment_pipeline(self.pid, 'demo', payloads, 1, 'run')
         fake_back.deploy.assert_not_called()
@@ -375,10 +383,104 @@ class DatabaseAndPipelines(unittest.TestCase):
         ctx.build_result = 'demo:new'
         ctx.clone_result = {'commit_hash': 'abcdef'}
         module = importlib.import_module(AppComponentDeployer.__module__)
-        with patch.object(module, 'scale_project', return_value=['id']) as scale:
+        with patch(
+            'app.services.network_service.ensure_ingress_network',
+            return_value='ingress-demo',
+        ), patch.object(module, 'scale_project', return_value=['id']) as scale:
             AppComponentDeployer()._deploy_container(ctx)
             self.assertEqual(scale.call_args.kwargs['port'], 8080)
             self.assertTrue(scale.call_args.kwargs['security_profile'].read_only)
+            self.assertEqual(scale.call_args.kwargs['network'], 'net-demo')
+            self.assertEqual(
+                scale.call_args.kwargs['extra_networks'],
+                ['ingress-demo'],
+            )
+            self.assertEqual(
+                scale.call_args.kwargs['traefik_network'],
+                'ingress-demo',
+            )
+
+
+class NetworkIsolation(unittest.TestCase):
+
+    def test_reconcile_restores_missing_ingress_network(self):
+        traefik = MagicMock()
+        traefik.attrs = {
+            "NetworkSettings": {
+                "Networks": {
+                    "valadeploy_app-network": {}
+                }
+            }
+        }
+
+        ingress = MagicMock()
+        ingress.name = "ingress-demo"
+        ingress.attrs = {
+            "Labels": {
+                ns.MANAGED_LABEL: "true",
+                ns.PROJECT_LABEL: "demo",
+                ns.ROLE_LABEL: "ingress",
+            }
+        }
+
+        private = MagicMock()
+        private.name = "net-demo"
+        private.attrs = {
+            "Labels": {
+                ns.MANAGED_LABEL: "true",
+                ns.PROJECT_LABEL: "demo",
+                ns.ROLE_LABEL: "private",
+            }
+        }
+
+        with patch.object(
+            ns,
+            "_get_valadeploy_traefik_container",
+            return_value=traefik,
+        ), patch.object(ns, "client") as client:
+            client.networks.list.return_value = [
+                ingress,
+                private,
+            ]
+
+            connected = ns.reconcile_traefik_ingress_networks()
+
+        ingress.connect.assert_called_once_with(traefik)
+        private.connect.assert_not_called()
+        self.assertEqual(connected, ["ingress-demo"])
+
+    def test_reconcile_does_not_duplicate_existing_connection(self):
+        traefik = MagicMock()
+        traefik.attrs = {
+            "NetworkSettings": {
+                "Networks": {
+                    "valadeploy_app-network": {},
+                    "ingress-demo": {},
+                }
+            }
+        }
+
+        ingress = MagicMock()
+        ingress.name = "ingress-demo"
+        ingress.attrs = {
+            "Labels": {
+                ns.MANAGED_LABEL: "true",
+                ns.PROJECT_LABEL: "demo",
+                ns.ROLE_LABEL: "ingress",
+            }
+        }
+
+        with patch.object(
+            ns,
+            "_get_valadeploy_traefik_container",
+            return_value=traefik,
+        ), patch.object(ns, "client") as client:
+            client.networks.list.return_value = [ingress]
+
+            connected = ns.reconcile_traefik_ingress_networks()
+
+        ingress.connect.assert_not_called()
+        self.assertEqual(connected, [])
 
 
 class StartupAndMigrations(unittest.TestCase):

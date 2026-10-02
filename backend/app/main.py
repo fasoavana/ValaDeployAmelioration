@@ -1,4 +1,6 @@
-from contextlib import asynccontextmanager
+import asyncio
+import logging
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
@@ -15,14 +17,59 @@ from app.api.routes_metrics import router as metrics_router
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.startup import initialize_database
+from app.services.network_service import reconcile_traefik_ingress_networks
 from fastapi.concurrency import run_in_threadpool
+
+logger = logging.getLogger(__name__)
+
+NETWORK_RECONCILE_INTERVAL_SECONDS = 5
+
+
+async def _network_reconciliation_loop():
+    """
+    Vérifie périodiquement que Traefik reste connecté aux réseaux
+    ingress gérés par ValaDeploy.
+    """
+    while True:
+        try:
+            connected = await run_in_threadpool(
+                reconcile_traefik_ingress_networks
+            )
+
+            if connected:
+                logger.info(
+                    "Traefik reconnecté aux réseaux ingress : %s",
+                    ", ".join(connected),
+                )
+
+        except Exception as exc:
+            # Une indisponibilité temporaire de Docker ou de Traefik
+            # ne doit pas empêcher le backend ValaDeploy de fonctionner.
+            logger.warning(
+                "Réconciliation des réseaux ingress impossible : %s",
+                exc,
+            )
+
+        await asyncio.sleep(NETWORK_RECONCILE_INTERVAL_SECONDS)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Exécuté au démarrage du serveur
+    # 1. Initialisation de la base de données.
     await run_in_threadpool(initialize_database)
-    yield
-    # Exécuté à l'arrêt du serveur (nettoyage si besoin)
+
+    # 2. Réconciliation continue des réseaux ingress.
+    network_task = asyncio.create_task(
+        _network_reconciliation_loop()
+    )
+
+    try:
+        yield
+    finally:
+        network_task.cancel()
+
+        with suppress(asyncio.CancelledError):
+            await network_task
     
 app = FastAPI(
     title=settings.APP_NAME,
