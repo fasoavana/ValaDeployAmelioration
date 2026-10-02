@@ -3,6 +3,7 @@ from app.models.project import ComponentKind
 from app.services.container_service import build_container_name
 from app.services.stack_deployment.app_component_deployer import AppComponentDeployer
 from app.services.stack_deployment.context import StackDeploymentContext
+from app.core.security import decrypt_data
 
 
 class BackComponentDeployer(AppComponentDeployer):
@@ -19,7 +20,7 @@ class BackComponentDeployer(AppComponentDeployer):
         envs = {}
         db_container_name = f"{ctx.slug}-{ctx.db_component.name}"
         envs["DB_URL"] = (
-            f"pgsql://{ctx.db_component.db_user}:{ctx.db_component.db_password}"
+            f"pgsql://{ctx.db_component.db_user}:{decrypt_data(ctx.db_component.db_password)}"
             f"@{db_container_name}:5432/{ctx.db_component.db_name}"
         )
         ctx.log(f"  [INFO] Injection auto de DATABASE_URL vers {db_container_name}")

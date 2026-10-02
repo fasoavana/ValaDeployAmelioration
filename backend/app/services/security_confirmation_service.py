@@ -1,10 +1,19 @@
 # app/services/security_confirmation_service.py
+
 import time
-from datetime import datetime
+
+from datetime import datetime, timezone
 from typing import Callable, List, Dict, Any, Optional
+
 from sqlalchemy.orm import Session
 
-from app.models.security_confirmation import SecurityConfirmation, ConfirmationStatus
+from app.models.security_confirmation import (
+    SecurityConfirmation,
+    ConfirmationStatus,
+)
+from app.services.security_audit_service import (
+    SecurityAuditService,
+)
 
 
 class SecurityConfirmationService:
@@ -15,65 +24,231 @@ class SecurityConfirmationService:
         project_id: int,
         critical_vulnerabilities: List[Dict[str, Any]],
         severity_count: Dict[str, int],
+        audit_log_id: Optional[int] = None,
     ) -> SecurityConfirmation:
+
         confirmation = SecurityConfirmation(
             project_id=project_id,
+            audit_log_id=audit_log_id,
             status=ConfirmationStatus.PENDING,
             critical_vulnerabilities=critical_vulnerabilities,
             severity_count=severity_count,
         )
+
         db.add(confirmation)
         db.commit()
         db.refresh(confirmation)
+
         return confirmation
 
     @staticmethod
-    def get_pending_for_project(db: Session, project_id: int) -> Optional[SecurityConfirmation]:
+    def get_pending_for_project(
+        db: Session,
+        project_id: int,
+    ) -> Optional[SecurityConfirmation]:
+
         return (
             db.query(SecurityConfirmation)
             .filter(
-                SecurityConfirmation.project_id == project_id,
-                SecurityConfirmation.status == ConfirmationStatus.PENDING,
+                SecurityConfirmation.project_id
+                == project_id,
+
+                SecurityConfirmation.status
+                == ConfirmationStatus.PENDING,
             )
-            .order_by(SecurityConfirmation.created_at.desc())
+            .order_by(
+                SecurityConfirmation.created_at.desc()
+            )
             .first()
         )
 
     @staticmethod
-    def get_by_id(db: Session, confirmation_id: int) -> Optional[SecurityConfirmation]:
-        return db.query(SecurityConfirmation).filter(SecurityConfirmation.id == confirmation_id).first()
+    def get_by_id(
+        db: Session,
+        confirmation_id: int,
+    ) -> Optional[SecurityConfirmation]:
+
+        return (
+            db.query(SecurityConfirmation)
+            .filter(
+                SecurityConfirmation.id
+                == confirmation_id
+            )
+            .first()
+        )
 
     @staticmethod
-    def mark_confirmed(db: Session, confirmation_id: int) -> Optional[SecurityConfirmation]:
-        """Appelé par la route quand l'utilisateur clique 'Continuer'."""
-        confirmation = SecurityConfirmationService.get_by_id(db, confirmation_id)
-        if confirmation and confirmation.status == ConfirmationStatus.PENDING:
-            confirmation.status = ConfirmationStatus.CONFIRMED
-            confirmation.resolved_at = datetime.utcnow()
+    def _resolve_audit(
+        db: Session,
+        confirmation: SecurityConfirmation,
+        outcome: str,
+        resolved_by_user_id: Optional[int] = None,
+    ) -> None:
+
+        if confirmation.audit_log_id is None:
+            return
+
+        SecurityAuditService.resolve(
+            db=db,
+            audit_id=confirmation.audit_log_id,
+            outcome=outcome,
+            resolved_by_user_id=resolved_by_user_id,
+        )
+
+    @staticmethod
+    def mark_confirmed(
+        db: Session,
+        confirmation_id: int,
+        resolved_by_user_id: Optional[int] = None,
+    ) -> Optional[SecurityConfirmation]:
+
+        confirmation = (
+            SecurityConfirmationService.get_by_id(
+                db,
+                confirmation_id,
+            )
+        )
+
+        if (
+            confirmation
+            and confirmation.status
+            == ConfirmationStatus.PENDING
+        ):
+            confirmation.status = (
+                ConfirmationStatus.CONFIRMED
+            )
+
+            confirmation.resolved_at = datetime.now(
+                timezone.utc
+            )
+
             db.commit()
+
+            SecurityConfirmationService._resolve_audit(
+                db,
+                confirmation,
+                "confirmed",
+                resolved_by_user_id,
+            )
+
         return confirmation
 
     @staticmethod
-    def mark_rejected(db: Session, confirmation_id: int) -> Optional[SecurityConfirmation]:
-        """Appelé par la route quand l'utilisateur clique 'Annuler'."""
-        confirmation = SecurityConfirmationService.get_by_id(db, confirmation_id)
-        if confirmation and confirmation.status == ConfirmationStatus.PENDING:
-            confirmation.status = ConfirmationStatus.REJECTED
-            confirmation.resolved_at = datetime.utcnow()
+    def mark_rejected(
+        db: Session,
+        confirmation_id: int,
+        resolved_by_user_id: Optional[int] = None,
+    ) -> Optional[SecurityConfirmation]:
+
+        confirmation = (
+            SecurityConfirmationService.get_by_id(
+                db,
+                confirmation_id,
+            )
+        )
+
+        if (
+            confirmation
+            and confirmation.status
+            == ConfirmationStatus.PENDING
+        ):
+            confirmation.status = (
+                ConfirmationStatus.REJECTED
+            )
+
+            confirmation.resolved_at = datetime.now(
+                timezone.utc
+            )
+
             db.commit()
+
+            SecurityConfirmationService._resolve_audit(
+                db,
+                confirmation,
+                "rejected",
+                resolved_by_user_id,
+            )
+
         return confirmation
 
     @staticmethod
-    def discard(db: Session, confirmation_id: int) -> None:
-        """
-        Supprime définitivement la trace de confirmation. Appelé par le pipeline
-        UNIQUEMENT si le déploiement a été refusé ou a timeout — jamais si confirmé
-        (dans ce cas on garde le rapport, consultable ensuite sur la page dédiée).
-        """
-        confirmation = SecurityConfirmationService.get_by_id(db, confirmation_id)
-        if confirmation:
-            db.delete(confirmation)
+    def mark_timeout(
+        db: Session,
+        confirmation_id: int,
+    ) -> Optional[SecurityConfirmation]:
+
+        confirmation = (
+            SecurityConfirmationService.get_by_id(
+                db,
+                confirmation_id,
+            )
+        )
+
+        if (
+            confirmation
+            and confirmation.status
+            == ConfirmationStatus.PENDING
+        ):
+            confirmation.status = (
+                ConfirmationStatus.TIMEOUT
+            )
+
+            confirmation.resolved_at = datetime.now(
+                timezone.utc
+            )
+
             db.commit()
+
+            SecurityConfirmationService._resolve_audit(
+                db,
+                confirmation,
+                "timeout",
+            )
+
+        return confirmation
+
+    @staticmethod
+    def mark_cancelled(
+        db: Session,
+        confirmation_id: int,
+    ) -> Optional[SecurityConfirmation]:
+        """
+        Le modèle historique ne possède pas de statut CANCELLED.
+
+        On clôt donc la confirmation comme REJECTED, tandis que
+        le journal d'audit conserve précisément l'outcome
+        "cancelled".
+        """
+
+        confirmation = (
+            SecurityConfirmationService.get_by_id(
+                db,
+                confirmation_id,
+            )
+        )
+
+        if (
+            confirmation
+            and confirmation.status
+            == ConfirmationStatus.PENDING
+        ):
+            confirmation.status = (
+                ConfirmationStatus.REJECTED
+            )
+
+            confirmation.resolved_at = datetime.now(
+                timezone.utc
+            )
+
+            db.commit()
+
+            SecurityConfirmationService._resolve_audit(
+                db,
+                confirmation,
+                "cancelled",
+            )
+
+        return confirmation
 
     @staticmethod
     def wait_for_decision(
@@ -81,23 +256,31 @@ class SecurityConfirmationService:
         confirmation_id: int,
         timeout_seconds: float = 10.0,
         poll_interval: float = 0.5,
-        is_cancelled: Optional[Callable[[], bool]] = None,
+        is_cancelled: Optional[
+            Callable[[], bool]
+        ] = None,
     ) -> ConfirmationStatus:
-        """
-        Bloque le thread du pipeline (on est déjà en background task, donc pas
-        d'impact sur l'API) en attendant que l'utilisateur réponde via la route
-        confirm/reject, ou jusqu'au timeout.
-        """
+
         elapsed = 0.0
+
         while elapsed < timeout_seconds:
-            db.expire_all()  # sinon SQLAlchemy peut resservir un statut en cache de session
-            confirmation = SecurityConfirmationService.get_by_id(db, confirmation_id)
+
+            db.expire_all()
+
+            confirmation = (
+                SecurityConfirmationService.get_by_id(
+                    db,
+                    confirmation_id,
+                )
+            )
 
             if not confirmation:
-                # Supprimé entre-temps (ex: projet supprimé pendant l'attente)
                 return ConfirmationStatus.REJECTED
 
-            if confirmation.status != ConfirmationStatus.PENDING:
+            if (
+                confirmation.status
+                != ConfirmationStatus.PENDING
+            ):
                 return confirmation.status
 
             if is_cancelled and is_cancelled():

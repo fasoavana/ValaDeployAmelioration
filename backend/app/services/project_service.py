@@ -6,6 +6,7 @@ from app.models.user import User
 from datetime import datetime
 from typing import List, Dict, Any
 import secrets
+from app.core.security import encrypt_data
 import uuid
 from app.services.cleanup_service import cleanup_project_resources
 
@@ -402,7 +403,12 @@ class ProjectService:
 
         component.db_user = f"{slug}_user"
         component.db_name = f"{slug}_db"
-        component.db_password = secrets.token_urlsafe(24)
+        # Le secret n'est conservé en clair que dans cette variable
+        # locale. Seule sa version chiffrée est persistée.
+        plain_db_password = secrets.token_urlsafe(24)
+        component.db_password = encrypt_data(
+            plain_db_password
+        )
         component.updated_at = datetime.utcnow()
 
         db.commit()

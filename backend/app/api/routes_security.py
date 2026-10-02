@@ -8,6 +8,7 @@ from app.services.project_service import ProjectService
 from app.models.user import User
 
 from app.services.security_confirmation_service import SecurityConfirmationService
+from app.services.security_audit_service import SecurityAuditService
 from app.models.security_confirmation import ConfirmationStatus
 from app.models.project import ComponentKind, FailReason
 
@@ -117,6 +118,9 @@ def get_pending_confirmation(
     return {
         "pending": True,
         "confirmation_id": confirmation.id,
+        "audit_log_id": confirmation.audit_log_id,
+        "blocking_findings": confirmation.critical_vulnerabilities,
+        # Compatibilité avec l'ancien frontend/API.
         "critical_vulnerabilities": confirmation.critical_vulnerabilities,
         "severity_count": confirmation.severity_count,
         "created_at": confirmation.created_at.isoformat() if confirmation.created_at else None,
@@ -137,7 +141,11 @@ def confirm_deployment(
     if not confirmation:
         raise HTTPException(status_code=404, detail="Aucune confirmation en attente pour ce projet.")
 
-    SecurityConfirmationService.mark_confirmed(db, confirmation.id)
+    SecurityConfirmationService.mark_confirmed(
+        db,
+        confirmation.id,
+        resolved_by_user_id=current_user.id,
+    )
     return {"message": "Déploiement confirmé, reprise du pipeline en cours."}
 
 
@@ -155,5 +163,70 @@ def reject_deployment(
     if not confirmation:
         raise HTTPException(status_code=404, detail="Aucune confirmation en attente pour ce projet.")
 
-    SecurityConfirmationService.mark_rejected(db, confirmation.id)
+    SecurityConfirmationService.mark_rejected(
+        db,
+        confirmation.id,
+        resolved_by_user_id=current_user.id,
+    )
     return {"message": "Déploiement annulé."}
+
+
+@router.get("/security/{project_id}/audit")
+def get_security_audit(
+    project_id: int,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Journal d'audit persistant du Security Gate v2."""
+
+    project = ProjectService.get_project_by_id(
+        db,
+        project_id,
+        current_user.id,
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Projet introuvable",
+        )
+
+    entries = SecurityAuditService.list_for_project(
+        db,
+        project_id,
+        limit=limit,
+    )
+
+    return [
+        {
+            "id": item.id,
+            "project_id": item.project_id,
+            "component_id": item.component_id,
+            "deployment_run_id": item.deployment_run_id,
+            "user_id": item.user_id,
+            "source": item.source,
+            "decision": item.decision,
+            "reasons": item.reasons or [],
+            "severity_count": item.severity_count or {},
+            "finding_count": item.finding_count,
+            "secret_count": item.secret_count,
+            "confirmation_outcome": (
+                item.confirmation_outcome
+            ),
+            "resolved_by_user_id": (
+                item.resolved_by_user_id
+            ),
+            "created_at": (
+                item.created_at.isoformat()
+                if item.created_at
+                else None
+            ),
+            "resolved_at": (
+                item.resolved_at.isoformat()
+                if item.resolved_at
+                else None
+            ),
+        }
+        for item in entries
+    ]

@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, decrypt_data
 from app.models.user import User
 from app.models.project import ProjectStatus, ComponentKind
 from app.services.project_service import ProjectService
@@ -92,6 +92,8 @@ def reveal_db_credentials(
     # 4. Tout est OK, on renvoie les credentials
     return {
         "db_user": component.db_user,
-        "db_password": component.db_password,
+        "db_password": decrypt_data(
+            component.db_password
+        ),
         "db_name": component.db_name,
     }

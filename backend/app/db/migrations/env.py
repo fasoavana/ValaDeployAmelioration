@@ -10,6 +10,7 @@ from app.models.user import User, RefreshToken
 from app.models.project import Project, ProjectComponent
 from app.models.deployment import DeploymentRun
 from app.models.security_confirmation import SecurityConfirmation
+from app.models.security_audit import SecurityAuditLog
 from app.core.config import settings
 
 # this is the Alembic Config object, which provides

@@ -28,6 +28,19 @@ class SecurityConfirmation(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
 
+    # Security Gate v2 :
+    # lien vers la décision BLOCK ayant déclenché
+    # cette demande de confirmation.
+    audit_log_id = Column(
+        Integer,
+        ForeignKey(
+            "security_audit_logs.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     status = Column(Enum(ConfirmationStatus), nullable=False, default=ConfirmationStatus.PENDING)
 
     # Snapshot du scan au moment de la détection (pas une référence vivante à

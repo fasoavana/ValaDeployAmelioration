@@ -95,7 +95,8 @@ class ProjectComponent(Base):
     volume_name = Column(String, nullable=True)           # nom du volume Docker pour la persistance
 
     db_user = Column(String, nullable=True)
-    db_password = Column(String, nullable=True)      # généré, jamais saisi par l'utilisateur
+    # Secret généré par ValaDeploy et persisté chiffré avec Fernet.
+    db_password = Column(String, nullable=True)
     db_name = Column(String, nullable=True)
     
     # --- Résultats de scan sécurité, copiés depuis Project (mêmes noms, même forme) ---

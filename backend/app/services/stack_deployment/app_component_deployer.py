@@ -17,6 +17,7 @@ from app.services.stack_deployment.base import ComponentDeployer
 from app.services.stack_deployment.context import StackDeploymentContext
 
 from app.services.security_confirmation_service import SecurityConfirmationService
+from app.services.security_audit_service import SecurityAuditService
 from app.models.security_confirmation import ConfirmationStatus
 
 class AppComponentDeployer(ComponentDeployer):
@@ -110,11 +111,43 @@ class AppComponentDeployer(ComponentDeployer):
         log("  [2/5] Analyse des secrets (Gitleaks)...")
         gitleak_result = detect_secret(ctx.destination_path)
         ProjectService.save_component_scan_results(ctx.db, ctx.component.id, gitleak_result=gitleak_result)
-        if gitleak_result["blocking"]:
-            log("         Secret trouvé dans le dépôt - déploiement bloqué")
-            self._fail(ctx, "Secret trouvé dans le dépôt", FailReason.SECRET_LEAK, "Secret leak détecté")
+        gitleaks_decision = gitleak_result.get(
+            "decision",
+            "BLOCK" if gitleak_result.get("blocking") else "PASS",
+        )
+
+        SecurityAuditService.create(
+            db=ctx.db,
+            project_id=ctx.component.project_id,
+            component_id=ctx.component.id,
+            deployment_run_id=ctx.history_run_id,
+            source="gitleaks",
+            decision=gitleaks_decision,
+            reasons=gitleak_result.get("reasons") or [],
+            secret_count=gitleak_result.get(
+                "secret_count",
+                0,
+            ),
+            finding_count=0,
+        )
+
+        if gitleaks_decision == "BLOCK":
+            log(
+                "         [SECURITY GATE] BLOCK — "
+                "secret détecté par Gitleaks."
+            )
+            self._fail(
+                ctx,
+                "Secret trouvé dans le dépôt",
+                FailReason.SECRET_LEAK,
+                "Security Gate BLOCK — secret Gitleaks détecté",
+            )
             return False
-        log("         Aucun secret détecté.")
+
+        log(
+            "         [SECURITY GATE] PASS — "
+            "aucun secret détecté."
+        )
         return True
 
     def _prepare_and_build_dockerfile(self, ctx: StackDeploymentContext) -> bool:
@@ -170,47 +203,151 @@ class AppComponentDeployer(ComponentDeployer):
             self._fail(ctx, f"Erreur scan vulnérabilités: {e}", FailReason.SCAN_ERROR, f"Erreur scan: {e}")
             return False
 
-        if trivy_result["blocking"]:
-            crit_vulns = trivy_result["critical_vulnerabilities"]
-            log(f"         {len(crit_vulns)} faille(s) critique(s) détectée(s) — en attente de confirmation...")
+        gate_decision = trivy_result.get(
+            "decision",
+            "BLOCK" if trivy_result.get("blocking") else "PASS",
+        )
+        gate_reasons = trivy_result.get("reasons") or []
 
-            # NOTE : la confirmation est posée au niveau du Project parent (pas du
-            # composant), donc project_id = ctx.component.project_id, cohérent
-            # avec l'endroit où le front va poller (project_id, pas component_id).
-            confirmation = SecurityConfirmationService.create_pending(
-                ctx.db, ctx.component.project_id, crit_vulns, trivy_result["severity_count"]
+        security_audit = SecurityAuditService.create(
+            db=ctx.db,
+            project_id=ctx.component.project_id,
+            component_id=ctx.component.id,
+            deployment_run_id=ctx.history_run_id,
+            source="trivy",
+            decision=gate_decision,
+            reasons=gate_reasons,
+            severity_count=trivy_result.get(
+                "severity_count"
+            ) or {},
+        )
+
+        if gate_decision == "BLOCK":
+            blocking_findings = (
+                trivy_result.get("blocking_findings")
+                or trivy_result.get("critical_vulnerabilities")
+                or []
             )
+
+            log(
+                f"         [SECURITY GATE] BLOCK — "
+                f"{len(blocking_findings)} "
+                "vulnérabilité(s) bloquante(s)."
+            )
+
+            for reason_text in gate_reasons:
+                log(f"         Raison: {reason_text}")
+
+            confirmation = (
+                SecurityConfirmationService.create_pending(
+                    ctx.db,
+                    ctx.component.project_id,
+                    blocking_findings,
+                    trivy_result["severity_count"],
+                    audit_log_id=security_audit.id,
+                )
+            )
+
             update_pipeline_run(
-                ctx.db, ctx.history_run_id, PipelineStatus.AWAITING_CONFIRMATION,
-                f"{len(crit_vulns)} faille(s) critique(s) sur {ctx.container_name} — en attente de confirmation"
+                ctx.db,
+                ctx.history_run_id,
+                PipelineStatus.AWAITING_CONFIRMATION,
+                (
+                    "Security Gate BLOCK — "
+                    f"{len(blocking_findings)} vulnérabilité(s) "
+                    f"sur {ctx.container_name} — "
+                    "confirmation requise"
+                ),
             )
 
-            decision = SecurityConfirmationService.wait_for_decision(
-                ctx.db, confirmation.id, timeout_seconds=10, is_cancelled=ctx.is_cancelled
+            decision = (
+                SecurityConfirmationService.wait_for_decision(
+                    ctx.db,
+                    confirmation.id,
+                    timeout_seconds=10,
+                    is_cancelled=ctx.is_cancelled,
+                )
             )
 
             if ctx.is_cancelled():
-                SecurityConfirmationService.discard(ctx.db, confirmation.id)
-                self._checkpoint_cancelled(ctx, "pendant l'attente de confirmation sécurité")
+                SecurityConfirmationService.mark_cancelled(
+                    ctx.db,
+                    confirmation.id,
+                )
+                self._checkpoint_cancelled(
+                    ctx,
+                    "pendant l'attente de confirmation sécurité",
+                )
                 return False
 
             if decision == ConfirmationStatus.CONFIRMED:
-                log("         Utilisateur a choisi de continuer malgré la faille critique.")
-                update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.SCANNING, "Confirmé, reprise du pipeline")
+                log(
+                    "         [SECURITY GATE] BLOCK outrepassé "
+                    "explicitement par l'utilisateur."
+                )
+
+                update_pipeline_run(
+                    ctx.db,
+                    ctx.history_run_id,
+                    PipelineStatus.SCANNING,
+                    (
+                        "Security Gate BLOCK confirmé "
+                        "par l'utilisateur — reprise"
+                    ),
+                )
+
             else:
-                reason = "Refusé par l'utilisateur" if decision == ConfirmationStatus.REJECTED else "Timeout (10s) sans réponse"
-                log(f"         [BLOQUÉ] {reason}")
-                SecurityConfirmationService.discard(ctx.db, confirmation.id)
+                reason = (
+                    "Refusé par l'utilisateur"
+                    if decision == ConfirmationStatus.REJECTED
+                    else "Timeout (10s) sans réponse"
+                )
+
+                log(
+                    f"         [SECURITY GATE] BLOCK — {reason}"
+                )
+
+                if (
+                    decision
+                    == ConfirmationStatus.TIMEOUT
+                ):
+                    SecurityConfirmationService.mark_timeout(
+                        ctx.db,
+                        confirmation.id,
+                    )
+
                 ProjectService.mark_component_failed(
-                    ctx.db, ctx.component.id,
+                    ctx.db,
+                    ctx.component.id,
                     f"Déploiement bloqué : {reason}",
                     fail_reason=FailReason.VULNERABILITY,
-                    vulnerabilities=crit_vulns,
+                    vulnerabilities=blocking_findings,
                 )
-                update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.DEPLOYING, f"Vulnérabilité critique — {reason}")
+
+                update_pipeline_run(
+                    ctx.db,
+                    ctx.history_run_id,
+                    PipelineStatus.DEPLOYING,
+                    f"Security Gate BLOCK — {reason}",
+                )
+
                 return False
 
-        log("        Scan de sécurité validé.")
+        elif gate_decision == "WARN":
+            log(
+                "         [SECURITY GATE] WARN — "
+                "le déploiement peut continuer."
+            )
+
+            for reason_text in gate_reasons:
+                log(f"         Raison: {reason_text}")
+
+        else:
+            log(
+                "         [SECURITY GATE] PASS — "
+                "scan de sécurité validé."
+            )
+
         return True
 
     def _deploy_container(self, ctx: StackDeploymentContext) -> None:

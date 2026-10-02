@@ -509,7 +509,7 @@ class StartupAndMigrations(unittest.TestCase):
         output = io.StringIO()
         config = Config(str(BACKEND/'alembic.ini'), output_buffer=output)
         config.set_main_option('script_location', str(BACKEND/'app/db/migrations'))
-        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ['d83a72b91e60'])
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ['6f4a9b2c1d7e'])
         command.upgrade(config, 'head', sql=True)
         sql = output.getvalue()
         self.assertIn('CREATE TABLE users', sql)

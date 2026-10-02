@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int
 
+    # Security Gate v2
+    BLOCK_ON_CRITICAL: bool = True
+    BLOCK_ON_HIGH: bool = True
+
     # fonction considerée comme une propriété de la classe,
     @property 
     def url(self) -> str: 

@@ -2,6 +2,7 @@
 import traceback
 
 from app.models.deployment import PipelineStatus
+from app.core.security import decrypt_data
 from app.models.project import FailReason
 from app.services.container_service import run_container
 from app.services.deployment_run_tracker import update_pipeline_run
@@ -41,7 +42,9 @@ class DatabaseComponentDeployer(ComponentDeployer):
                 envs_var=comp_payload.get("envs_var"),
                 plain_envs_var={
                     "POSTGRES_USER": component.db_user,
-                    "POSTGRES_PASSWORD": component.db_password,
+                    "POSTGRES_PASSWORD": decrypt_data(
+                        component.db_password
+                    ),
                     "POSTGRES_DB": component.db_name,
                 },
                 extra_networks=None,

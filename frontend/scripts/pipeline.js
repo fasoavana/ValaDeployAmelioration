@@ -353,14 +353,19 @@ function startPollingForRun(runId) {
                 try {
                     const pending = await getPendingSecurityConfirmation(currentProjectId);
                     if (pending.pending) {
+                        const blockingFindings =
+                            pending.blocking_findings
+                            || pending.critical_vulnerabilities
+                            || [];
+
                         SecurityConfirmModal.show({
-                            vulnCount: pending.critical_vulnerabilities.length,
-                            vulnerabilities: pending.critical_vulnerabilities,
+                            vulnCount: blockingFindings.length,
+                            vulnerabilities: blockingFindings,
                             slug: currentSlug,
                             onConfirm: async () => {
                                 await confirmSecurityDeployment(currentProjectId);
                                 securityModalOpenForRun = null;
-                                ValaToast.show({ type: 'info', title: 'Déploiement repris', message: 'Le pipeline continue malgré la faille critique.' });
+                                ValaToast.show({ type: 'info', title: 'Déploiement repris', message: 'Le pipeline continue malgré la décision BLOCK du Security Gate.' });
                             },
                             onReject: async () => {
                                 await rejectSecurityDeployment(currentProjectId);
