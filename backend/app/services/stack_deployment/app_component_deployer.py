@@ -13,6 +13,7 @@ from app.services.deployment_run_tracker import update_pipeline_run
 from app.services.git_service import clone_repository
 from app.services.project_service import ProjectService
 from app.services.scan_service import detect_secret, scan_image
+from app.services.vulnerability_scan_service import VulnerabilityScanService
 from app.services.stack_deployment.base import ComponentDeployer
 from app.services.stack_deployment.context import StackDeploymentContext
 
@@ -190,14 +191,37 @@ class AppComponentDeployer(ComponentDeployer):
             log(f"         Erreur build: {e}")
             self._fail(ctx, f"Erreur build: {e}", FailReason.BUILD_ERROR, f"Erreur build: {e}")
             return False
-        
+
     def _scan_vulnerabilities(self, ctx: StackDeploymentContext) -> bool:
         log = ctx.log
         log("  [5/5] Analyse des vulnérabilités (Trivy)...")
         update_pipeline_run(ctx.db, ctx.history_run_id, PipelineStatus.SCANNING, f"Scan Trivy pour {ctx.container_name}")
         try:
-            trivy_result = scan_image(ctx.build_result, skip_security_gate=self.skip_security_gate)
-            ProjectService.save_component_scan_results(ctx.db, ctx.component.id, trivy_result=trivy_result)
+            trivy_result = scan_image(
+                ctx.build_result,
+                skip_security_gate=self.skip_security_gate,
+            )
+
+            ProjectService.save_component_scan_results(
+                ctx.db,
+                ctx.component.id,
+                trivy_result=trivy_result,
+            )
+
+            VulnerabilityScanService.create_snapshot(
+                ctx.db,
+                project_id=ctx.component.project_id,
+                component_id=ctx.component.id,
+                deployment_run_id=ctx.history_run_id,
+                trigger="deployment",
+                image_reference=ctx.build_result,
+                commit_hash=(
+                    ctx.clone_result.get("commit_hash")
+                    if ctx.clone_result
+                    else None
+                ),
+                trivy_result=trivy_result,
+            )
         except Exception as e:
             log(f"         Erreur scan vulnérabilités: {e}")
             self._fail(ctx, f"Erreur scan vulnérabilités: {e}", FailReason.SCAN_ERROR, f"Erreur scan: {e}")

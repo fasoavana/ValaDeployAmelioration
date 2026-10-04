@@ -22,6 +22,13 @@ const BADGE_ERR = `${BADGE_BASE} bg-red-50 text-red-700 border-red-200/80`;
 
 let showAllSeverities = false;   // default: only CRITICAL + HIGH are listed
 
+let monitoringProjectId = null;
+let monitoringComponentId = null;
+let monitoringComponentName = null;
+let monitoringComponentResolutionFailed = false;
+let monitoringAmbiguousStack = false;
+
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -40,13 +47,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const slugEl = document.getElementById('project-slug');
     if (slugEl) slugEl.textContent = slug;
 
-    document.getElementById('rescan-btn')?.addEventListener('click', comingSoon);
+    document.getElementById('rescan-btn')?.addEventListener('click', handleManualRescan);
     document.getElementById('autofix-btn')?.addEventListener('click', comingSoon);
 
     initUserSession(
         async () => {
             try {
                 const report = await getSecurityReport(slug);
+
+                monitoringProjectId = report.project_id ?? null;
+                monitoringComponentName = params.get('component');
+
+                const monitoringComponents = report.components || [];
+
+                const selectedMonitoringComponent =
+                    monitoringComponentName
+                        ? monitoringComponents.find(
+                            component =>
+                                component.name === monitoringComponentName
+                          )
+                        : null;
+
+                monitoringComponentResolutionFailed = Boolean(
+                    monitoringComponentName
+                    && !selectedMonitoringComponent
+                );
+
+                monitoringComponentId =
+                    selectedMonitoringComponent?.id ?? null;
+
+                monitoringAmbiguousStack = Boolean(
+                    !monitoringComponentName
+                    && monitoringComponents.length > 1
+                );
+
+                await loadContinuousMonitoring();
                 const wantedComponent = params.get('component') || report.focus;
 
                 if (slugEl) slugEl.textContent = report.slug;
@@ -365,4 +400,428 @@ function renderGitleaksResult(c) {
             </div>
         </div>
         ${extraNote}`;
+}
+
+
+// ============================================================
+// Continuous Vulnerability Monitoring
+// ============================================================
+
+function monitoringEsc(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+
+function formatMonitoringDate(value) {
+    if (!value) return 'Unknown';
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString();
+}
+
+
+function vulnerabilityDisplayName(vulnerability) {
+    return (
+        vulnerability?.id
+        || vulnerability?.vulnerability_id
+        || vulnerability?.VulnerabilityID
+        || 'Unknown vulnerability'
+    );
+}
+
+
+function renderEvolutionGroup(title, items, emptyText) {
+    const values = Array.isArray(items) ? items : [];
+
+    if (!values.length) {
+        return `
+            <div class="border border-slate-200 rounded-lg p-3">
+                <p class="text-sm font-semibold text-slate-800">
+                    ${monitoringEsc(title)}
+                </p>
+                <p class="text-xs text-slate-500 mt-1">
+                    ${monitoringEsc(emptyText)}
+                </p>
+            </div>
+        `;
+    }
+
+    const rows = values.slice(0, 8).map(item => `
+        <div class="flex items-center justify-between gap-3 py-1.5">
+            <span class="text-xs font-mono text-slate-700 truncate">
+                ${monitoringEsc(vulnerabilityDisplayName(item))}
+            </span>
+            <span class="text-[11px] font-medium text-slate-500">
+                ${monitoringEsc(item.severity || 'UNKNOWN')}
+            </span>
+        </div>
+    `).join('');
+
+    const remaining = values.length > 8
+        ? `
+            <p class="text-xs text-slate-500 mt-2">
+                +${values.length - 8} more
+            </p>
+        `
+        : '';
+
+    return `
+        <div class="border border-slate-200 rounded-lg p-3">
+            <p class="text-sm font-semibold text-slate-800 mb-1">
+                ${monitoringEsc(title)}
+                <span class="text-slate-400 font-normal">
+                    (${values.length})
+                </span>
+            </p>
+            ${rows}
+            ${remaining}
+        </div>
+    `;
+}
+
+
+function resetMonitoringComparison() {
+    const ids = [
+        'monitoring-new-count',
+        'monitoring-persistent-count',
+        'monitoring-resolved-count',
+        'monitoring-important-count',
+    ];
+
+    ids.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = '0';
+    });
+}
+
+
+function renderMonitoringComparison(comparison) {
+    const summary = comparison?.summary || {};
+
+    const mappings = [
+        ['monitoring-new-count', summary.new || 0],
+        ['monitoring-persistent-count', summary.persistent || 0],
+        ['monitoring-resolved-count', summary.resolved || 0],
+        ['monitoring-important-count', summary.important_new || 0],
+    ];
+
+    mappings.forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = String(value);
+    });
+
+    const details = document.getElementById(
+        'monitoring-comparison-details'
+    );
+
+    if (!details) return;
+
+    details.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            ${renderEvolutionGroup(
+                'New vulnerabilities',
+                comparison?.new,
+                'No new vulnerability.'
+            )}
+
+            ${renderEvolutionGroup(
+                'Persistent vulnerabilities',
+                comparison?.persistent,
+                'No persistent vulnerability.'
+            )}
+
+            ${renderEvolutionGroup(
+                'Resolved vulnerabilities',
+                comparison?.resolved,
+                'No resolved vulnerability.'
+            )}
+        </div>
+    `;
+}
+
+
+function renderMonitoringHistory(history) {
+    const container = document.getElementById(
+        'scan-history-list'
+    );
+
+    if (!container) return;
+
+    if (!Array.isArray(history) || !history.length) {
+        container.innerHTML = `
+            <p class="text-sm text-slate-500">
+                No historical vulnerability scan yet.
+            </p>
+        `;
+        return;
+    }
+
+    container.innerHTML = history.slice(0, 10).map(scan => {
+        const counts = scan.severity_count || {};
+
+        const critical = counts.CRITICAL || 0;
+        const high = counts.HIGH || 0;
+
+        const component = scan.component_id !== null
+            ? `component #${scan.component_id}`
+            : 'project';
+
+        return `
+            <div class="flex flex-wrap items-center justify-between gap-3
+                        border border-slate-200 rounded-lg px-3 py-2.5">
+                <div>
+                    <p class="text-sm font-medium text-slate-800">
+                        Scan #${monitoringEsc(scan.id)}
+                        <span class="text-xs text-slate-400 font-normal">
+                            · ${monitoringEsc(component)}
+                        </span>
+                    </p>
+
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        ${monitoringEsc(formatMonitoringDate(scan.scanned_at))}
+                        · ${monitoringEsc(scan.trigger || 'unknown')}
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="px-2 py-1 rounded border border-slate-200">
+                        CRITICAL ${critical}
+                    </span>
+
+                    <span class="px-2 py-1 rounded border border-slate-200">
+                        HIGH ${high}
+                    </span>
+
+                    <span class="px-2 py-1 rounded border border-slate-200
+                                 font-semibold">
+                        ${monitoringEsc(scan.decision || 'N/A')}
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+
+async function loadContinuousMonitoring() {
+    const targetEl = document.getElementById(
+        'monitoring-target'
+    );
+
+    const historyEl = document.getElementById(
+        'scan-history-list'
+    );
+
+    const lastScanEl = document.getElementById(
+        'last-scan-time'
+    );
+
+    if (!monitoringProjectId) {
+        if (historyEl) {
+            historyEl.innerHTML = `
+                <p class="text-sm text-slate-500">
+                    Monitoring metadata unavailable.
+                </p>
+            `;
+        }
+
+        return;
+    }
+
+    if (monitoringComponentResolutionFailed) {
+        if (targetEl) {
+            targetEl.textContent =
+                'Component could not be resolved';
+        }
+
+        if (historyEl) {
+            historyEl.innerHTML = `
+                <p class="text-sm text-red-600">
+                    The component selected in the URL was not found.
+                </p>
+            `;
+        }
+
+        return;
+    }
+
+    if (targetEl) {
+        targetEl.textContent = monitoringComponentName
+            ? `Component: ${monitoringComponentName}`
+            : (
+                monitoringAmbiguousStack
+                    ? 'All application components'
+                    : 'Project'
+              );
+    }
+
+    try {
+        const history = await getVulnerabilityScanHistory(
+            monitoringProjectId,
+            monitoringComponentId
+        );
+
+        renderMonitoringHistory(history);
+
+        if (lastScanEl) {
+            lastScanEl.textContent =
+                history?.length
+                    ? formatMonitoringDate(
+                        history[0].scanned_at
+                      )
+                    : 'No historical scan yet';
+        }
+
+        resetMonitoringComparison();
+
+        const details = document.getElementById(
+            'monitoring-comparison-details'
+        );
+
+        if (!history || history.length < 2) {
+            if (details) {
+                details.innerHTML = `
+                    <p class="text-sm text-slate-500">
+                        A second scan is required before an evolution
+                        can be calculated.
+                    </p>
+                `;
+            }
+
+            return;
+        }
+
+        if (monitoringAmbiguousStack) {
+            if (details) {
+                details.innerHTML = `
+                    <p class="text-sm text-slate-500">
+                        Open the security report of a specific component
+                        to compare its vulnerability evolution.
+                    </p>
+                `;
+            }
+
+            return;
+        }
+
+        const comparison =
+            await getVulnerabilityScanComparison(
+                monitoringProjectId,
+                monitoringComponentId
+            );
+
+        renderMonitoringComparison(
+            comparison
+        );
+
+    } catch (error) {
+        console.error(
+            'Continuous monitoring error:',
+            error
+        );
+
+        if (historyEl) {
+            historyEl.innerHTML = `
+                <p class="text-sm text-red-600">
+                    Unable to load vulnerability scan history.
+                </p>
+            `;
+        }
+    }
+}
+
+
+async function handleManualRescan() {
+    const button = document.getElementById(
+        'rescan-btn'
+    );
+
+    const badge = document.getElementById(
+        'scan-status-badge'
+    );
+
+    if (!monitoringProjectId) {
+        ValaToast?.show?.({
+            type: 'error',
+            title: 'Re-scan unavailable',
+            message: 'Project identifier is unavailable.',
+        });
+
+        return;
+    }
+
+    if (monitoringComponentResolutionFailed) {
+        ValaToast?.show?.({
+            type: 'error',
+            title: 'Re-scan unavailable',
+            message: 'The selected component could not be resolved.',
+        });
+
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.classList.add(
+            'opacity-60',
+            'cursor-not-allowed'
+        );
+    }
+
+    if (badge) {
+        badge.textContent = 'SCANNING...';
+    }
+
+    try {
+        await rescanSecurityProject(
+            monitoringProjectId,
+            monitoringComponentId
+        );
+
+        ValaToast?.show?.({
+            type: 'success',
+            title: 'Re-scan completed',
+            message:
+                'The vulnerability history has been updated.',
+        });
+
+        // Recharge aussi les compteurs Security Report existants.
+        window.location.reload();
+
+    } catch (error) {
+        console.error(
+            'Manual vulnerability re-scan failed:',
+            error
+        );
+
+        if (badge) {
+            badge.textContent = 'SCAN ERROR';
+        }
+
+        ValaToast?.show?.({
+            type: 'error',
+            title: 'Re-scan failed',
+            message:
+                error?.message
+                || 'Unable to run the vulnerability scan.',
+        });
+
+        if (button) {
+            button.disabled = false;
+            button.classList.remove(
+                'opacity-60',
+                'cursor-not-allowed'
+            );
+        }
+    }
 }

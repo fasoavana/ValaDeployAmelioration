@@ -15,6 +15,7 @@ from app.services.git_service import clone_repository
 from app.services.build_service import detect_project_type, generate_dockerfile, build_docker_image
 from app.services.container_service import scale_project, verify_containers_running
 from app.services.scan_service import scan_image, detect_secret
+from app.services.vulnerability_scan_service import VulnerabilityScanService
 from app.core.config import settings
 from app.core.exceptions import BuildError, DeployError, DetectionError, SecretLeakError, VulnerabilityError
 from app.models.project import Project, FailReason, ComponentKind, ProjectStatus, ProjectComponent
@@ -220,7 +221,27 @@ class DeployService:
 
                 failure_stage = FailReason.SCAN_ERROR
                 trivy_result = scan_image(build_result)
-                ProjectService.save_scan_results(db, project_id, trivy_result=trivy_result)
+                ProjectService.save_scan_results(
+                    db,
+                    project_id,
+                    trivy_result=trivy_result,
+                )
+
+                # Historique indépendant de l'état courant.
+                # Le snapshot est conservé même si le Security Gate
+                # décide ensuite de bloquer le déploiement.
+                VulnerabilityScanService.create_snapshot(
+                    db,
+                    project_id=project_id,
+                    deployment_run_id=history_run_id,
+                    triggered_by_user_id=user_id,
+                    trigger="deployment",
+                    image_reference=build_result,
+                    commit_hash=clone_result.get(
+                        "commit_hash"
+                    ),
+                    trivy_result=trivy_result,
+                )
 
                 gate_decision = trivy_result.get(
                     "decision",

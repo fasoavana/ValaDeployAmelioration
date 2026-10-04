@@ -47,3 +47,32 @@ function rejectSecurityDeployment(projectId) {
     }).then(handleResponse)
   );
 }
+
+// Continuous Vulnerability Monitoring
+
+function getVulnerabilityScanHistory(projectId, componentId = null) {
+  return fetchWithAutoRefresh(accessToken =>
+    fetch(`http://app.localhost:8080/api/security/${projectId}/scans${componentId !== null ? '?component_id=' + encodeURIComponent(componentId) : ''}`, {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + accessToken }
+    }).then(handleResponse)
+  );
+}
+
+function getVulnerabilityScanComparison(projectId, componentId = null) {
+  return fetchWithAutoRefresh(accessToken =>
+    fetch(`http://app.localhost:8080/api/security/${projectId}/scans/compare${componentId !== null ? '?component_id=' + encodeURIComponent(componentId) : ''}`, {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + accessToken }
+    }).then(handleResponse)
+  );
+}
+
+function rescanSecurityProject(projectId, componentId = null) {
+  return fetchWithAutoRefresh(accessToken =>
+    fetch(`http://app.localhost:8080/api/security/${projectId}/rescan${componentId !== null ? '?component_id=' + encodeURIComponent(componentId) : ''}`, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + accessToken }
+    }).then(handleResponse)
+  );
+}

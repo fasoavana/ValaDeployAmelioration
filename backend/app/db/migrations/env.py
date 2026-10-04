@@ -11,12 +11,13 @@ from app.models.project import Project, ProjectComponent
 from app.models.deployment import DeploymentRun
 from app.models.security_confirmation import SecurityConfirmation
 from app.models.security_audit import SecurityAuditLog
+from app.models.vulnerability_scan import VulnerabilityScan
 from app.core.config import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-# on utilise pas alembic.ini pour url 
+# on utilise pas alembic.ini pour url
 config.set_main_option("sqlalchemy.url", settings.url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
