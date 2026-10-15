@@ -1,3 +1,16 @@
+# Build Gitleaks from its official source at a pinned version.
+# The upstream v8.30.1 release contains Go dependencies reported by Trivy.
+FROM golang:1.27.2-bookworm AS gitleaks-builder
+ENV GOTOOLCHAIN=local
+WORKDIR /src
+RUN git clone --quiet --depth 1 --branch v8.30.1 https://github.com/gitleaks/gitleaks.git . \
+    && go get golang.org/x/crypto@v0.55.0 golang.org/x/text@v0.41.0 \
+    && go mod tidy \
+    && test "$(go list -m -f '{{.Version}}' golang.org/x/crypto)" = 'v0.55.0' \
+    && test "$(go list -m -f '{{.Version}}' golang.org/x/text)" = 'v0.41.0' \
+    && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/gitleaks . \
+    && /out/gitleaks version
+
 FROM python:3.13-slim
 
 ARG DOCKER_GID=999
@@ -10,6 +23,10 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Build-time pip is not needed by the running FastAPI service.
+# Remove its vendored dependencies and their CycloneDX SBOM from the final filesystem.
+RUN python -m pip uninstall -y pip && \
+    python -c "import importlib.util; assert importlib.util.find_spec('pip') is None"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git curl && \
@@ -17,10 +34,10 @@ RUN apt-get update && \
 
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-RUN GITLEAKS_VERSION=$(curl -s "https://api.github.com/repos/gitleaks/gitleaks/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+') && \
-    curl -sfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz && \
-    tar -xzf gitleaks.tar.gz -C /usr/local/bin gitleaks && \
-    rm gitleaks.tar.gz
+# Gitleaks is kept mandatory: use a patched Go build, not the upstream
+# release binary compiled with Go 1.24.11 / x/crypto 0.35 / x/text 0.22.
+COPY --from=gitleaks-builder /out/gitleaks /usr/local/bin/gitleaks
+RUN gitleaks version
 # Copy the rest of the application source code
 COPY . .
 
